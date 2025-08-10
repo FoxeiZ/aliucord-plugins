@@ -6,7 +6,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
 // TODO: Change to your repository
-val repo = "Aliucord/plugins-template"
+val repo = "FoxeiZ/aliucord-plugins"
 
 subprojects {
     val libs = rootProject.libs
@@ -19,8 +19,7 @@ subprojects {
     }
 
     configure<LibraryExtension> {
-        // TODO: Change to your package name
-        namespace = "com.github.yournamehere"
+        namespace = "com.github.foxeiz"
 
         compileSdk = 34
 
@@ -43,8 +42,7 @@ subprojects {
     }
 
     configure<AliucordExtension> {
-        // TODO: Change to your name and user ID
-        author("yournamehere", 0L)
+        author("FoxeiZ", 0L)
 
         updateUrl.set("https://raw.githubusercontent.com/$repo/builds/updater.json")
         buildUrl.set("https://raw.githubusercontent.com/$repo/builds/%s.zip")
@@ -75,3 +73,4 @@ subprojects {
         }
     }
 }
+
