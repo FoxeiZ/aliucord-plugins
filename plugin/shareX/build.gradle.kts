@@ -1,5 +1,5 @@
 version = "1.0.0" // Plugin version. Increment this to trigger the updater
-description = "My first Java plugin!" // Plugin description that will be shown to user
+description = "My first Kotlin plugin!" // Plugin description that will be shown to user
 
 aliucord {
     // Changelog of your plugin
@@ -18,4 +18,21 @@ aliucord {
     // Excludes this plugin from the updater, meaning it won't show up for users.
     // Set this if the plugin is unfinished
     excludeFromUpdaterJson.set(true)
+}
+
+android {
+    sourceSets {
+        getByName("main") {
+            java.srcDirs("stubs")
+        }
+    }
+}
+
+dependencies {
+    implementation("net.ormr.katbox:katbox:0.3.0")
+
+    configurations.all {
+        exclude(group = "com.discord", module = "media_picker")
+        exclude(group = "com.discord", module = "app")
+    }
 }
