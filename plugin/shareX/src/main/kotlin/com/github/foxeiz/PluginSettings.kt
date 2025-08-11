@@ -37,6 +37,19 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
         CATBOX_ANON("catbox-anon"), CATBOX_USER("catbox-user"),
     }
 
+    private class makeTextWatcher(private val afterTextChanged: (Editable?) -> Unit) :
+        TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+        }
+
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+        }
+
+        override fun afterTextChanged(s: Editable?) {
+            afterTextChanged(s)
+        }
+    }
+
     @SuppressLint("SetTextI18n")
     override fun onViewBound(view: View) {
         super.onViewBound(view)
@@ -71,7 +84,7 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
         }
 
         RadioManager(l.map { it.checkedSetting }).apply {
-            val uploadService = settings.getString("uploadService", "catbox-anon")
+            val uploadService = settings.getString(SettingsKey.UPLOAD_SERVICE_KEY, "catbox-anon")
             val selected = l.find { it.name == uploadService }
 
             l.forEach { entry ->
@@ -99,40 +112,30 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
         }
 
         TextInput(
-            ctx, "User Agent", settings.getString(USER_AGENT_KEY, ""), object : TextWatcher {
-                override fun beforeTextChanged(
-                    s: CharSequence?, s1: Int, c: Int, a: Int
-                ) {
-                }
-
-                override fun onTextChanged(
-                    s: CharSequence?, s1: Int, b: Int, c: Int
-                ) {
-                }
-
-                override fun afterTextChanged(s: Editable?) {
-                    settings.setString(USER_AGENT_KEY, s?.toString() ?: "")
-                }
-            }).apply {
+            ctx,
+            "User Agent",
+            settings.getString(USER_AGENT_KEY, ""),
+            makeTextWatcher { s -> settings.setString(USER_AGENT_KEY, s?.toString() ?: "") }
+        ).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, p, 0, 0)
+            }
             this@PluginSettings.addView(this)
         }
 
         TextInput(
-            ctx, "Header", settings.getString(HEADER_KEY, ""), object : TextWatcher {
-                override fun beforeTextChanged(
-                    s: CharSequence?, start: Int, count: Int, after: Int
-                ) {
-                }
-
-                override fun onTextChanged(
-                    s: CharSequence?, start: Int, before: Int, count: Int
-                ) {
-                }
-
-                override fun afterTextChanged(s: Editable?) {
-                    settings.setString(HEADER_KEY, s?.toString() ?: "")
-                }
-            }).apply {
+            ctx, "Header", settings.getString(HEADER_KEY, ""),
+            makeTextWatcher { s -> settings.setString(HEADER_KEY, s?.toString() ?: "") }
+        ).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, p, 0, 0)
+            }
             this@PluginSettings.addView(this)
         }
     }
