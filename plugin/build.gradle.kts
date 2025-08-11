@@ -18,6 +18,12 @@ subprojects {
         plugin(libs.plugins.ktlint.get().pluginId)
     }
 
+    configure<JavaPluginExtension> {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(11))
+        }
+    }
+
     configure<LibraryExtension> {
         namespace = "com.github.foxeiz"
 
