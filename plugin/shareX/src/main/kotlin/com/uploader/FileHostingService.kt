@@ -40,7 +40,7 @@ abstract class FileHostingService {
      * Gets the maximum file size allowed by this hosting service in bytes.
      * Returns null if there's no specific limit or the limit is unknown.
      */
-    abstract fun getMaxFileSize(): Long?
+    abstract fun getMaxFileSize(): Float?
 
     /**
      * Gets the name of this hosting service.
@@ -52,7 +52,7 @@ abstract class FileHostingService {
      * Default implementation checks if the name is not blank.
      */
     open fun validateFileName(name: String): Boolean {
-        return name.isNotBlank()
+        return name.trim().isNotEmpty()
     }
 
     /**
@@ -60,4 +60,15 @@ abstract class FileHostingService {
      * Returns null if all extensions are supported.
      */
     open fun getSupportedExtensions(): Set<String>? = null
+
+    /**
+     * Checks if the given file extension is supported by this service.
+     * If no specific extensions are defined, all extensions are considered supported.
+     *
+     * @param extension the file extension to check
+     * @return true if the extension is supported, false otherwise
+     */
+    open fun isSupportedFileExtension(extension: String): Boolean {
+        return getSupportedExtensions()?.contains(extension) != false
+    }
 }

@@ -55,10 +55,17 @@ class Catbox(private val userHash: String?) : FileHostingService() {
 
     override fun getServiceName(): String = "Catbox"
 
-    override fun getMaxFileSize(): Long = 200 * 1024 * 1024 // 200 MB
+    override fun getMaxFileSize(): Float = 200F
+
+    override fun isSupportedFileExtension(extension: String): Boolean {
+        val unsupportedExtensions = setOf(
+            "exe", "scr", "cpl", "doc", "docx", "jar"
+        )
+        return !unsupportedExtensions.contains(extension.lowercase())
+    }
 
     override fun upload(file: File): String {
-        require(file.name.isNotBlank()) { "'name' must not be blank" }
+        require(file.name.trim().isNotEmpty()) { "'name' must not be blank" }
         return makePostRequest(RequestType.FILE_UPLOAD, mapOf("fileToUpload" to file))
     }
 
