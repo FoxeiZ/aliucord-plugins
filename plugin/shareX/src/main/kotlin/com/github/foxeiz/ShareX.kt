@@ -83,7 +83,6 @@ class ShareX : Plugin() {
             if (settings.getBool(PluginSettings.DISABLED_KEY, false)) {
                 return@before
             }
-            Utils.showToast("StoreMessages.sendMessage called", false)
 
             @Suppress("UNCHECKED_CAST")
             val attachments = (it.args[3] as List<Attachment<*>>).toMutableList()
