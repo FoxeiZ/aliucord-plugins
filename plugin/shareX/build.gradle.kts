@@ -1,11 +1,17 @@
-version = "1.0.0" // Plugin version. Increment this to trigger the updater
-description = "My first Kotlin plugin!" // Plugin description that will be shown to user
+version = "1.1.0" // Plugin version. Increment this to trigger the updater
+description =
+    "Upload >10mb file for non-nitro user." // Plugin description that will be shown to user
 
 aliucord {
     // Changelog of your plugin
     changelog.set(
         """
-        Some changelog
+        feat: implement file upload functionality with Catbox integration
+        feat: add attachment utilities for file handling
+        feat: create notification helper for upload progress
+        feat: establish command registry for debug commands
+        refactor: enhance plugin settings with new upload options
+        refactor: update file hosting service interface for better extension support
         """.trimIndent()
     )
     // Image or Gif that will be shown at the top of your changelog page
@@ -29,8 +35,6 @@ android {
 }
 
 dependencies {
-    implementation("net.ormr.katbox:katbox:0.3.0")
-
     configurations.all {
         exclude(group = "com.discord", module = "media_picker")
         exclude(group = "com.discord", module = "app")
