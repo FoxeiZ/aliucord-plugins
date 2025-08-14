@@ -17,6 +17,7 @@ import com.discord.views.RadioManager
 import com.github.foxeiz.commands.CatboxCommands
 import com.github.foxeiz.settings.CatboxSettings
 import com.github.foxeiz.settings.LitterboxSettings
+import com.github.foxeiz.settings.PomfSettings
 import com.lytefast.flexinput.R
 
 private data class UploadProviderOption(
@@ -42,7 +43,8 @@ class PluginSettings(private val settings: SettingsAPI, private val commands: Co
     enum class UploadProvider(val value: String) {
         CATBOX_ANON("catbox-anon"),
         CATBOX_USER("catbox-user"),
-        LITTERBOX("litterbox")
+        LITTERBOX("litterbox"),
+        POMF("pomf")
     }
 
     private var removeCommandCallback: ((CommandsAPI) -> Unit)? = null
@@ -123,6 +125,14 @@ class PluginSettings(private val settings: SettingsAPI, private val commands: Co
                     "Litterbox", "Max of 1GB per file, remove after 1 (or set time) hour(s)"
                 ),
                 { context, settings -> LitterboxSettings(context, settings) }
+            ),
+            UploadProviderOption(
+                UploadProvider.POMF.value,
+                Utils.createCheckedSetting(
+                    ctx, CheckedSetting.ViewType.RADIO,
+                    "Pomf", "Max file size is depends on the server"
+                ),
+                { context, settings -> PomfSettings(context, settings) }
             )
         )
     }

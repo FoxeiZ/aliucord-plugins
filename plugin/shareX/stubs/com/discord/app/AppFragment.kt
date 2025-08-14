@@ -22,8 +22,8 @@ import rx.functions.Action2
 import rx.functions.Func0
 import rx.subjects.Subject
 import java.io.File
-import kotlin.jvm.functions.Function0
-import kotlin.jvm.functions.Function1
+import kotlin.reflect.KFunction0
+import kotlin.reflect.KFunction1
 
 @Suppress("Unused", "Deprecated")
 open class AppFragment : Fragment {
@@ -88,13 +88,13 @@ open class AppFragment : Fragment {
     }
 
     open fun openMediaChooser() {}
-    open fun requestCameraQRScanner(onGranted: Function0<Unit>) {}
-    open fun requestCameraQRScanner(onGranted: Function0<Unit>, onDenied: Function0<Unit>) {}
-    open fun requestContacts(onGranted: Function0<Unit>, onDenied: Function0<Unit>) {}
-    open fun requestMedia(onGranted: Function0<Unit>) {}
-    open fun requestMediaDownload(onGranted: Function0<Unit>) {}
-    open fun requestMicrophone(onGranted: Function0<Unit>, onDenied: Function0<Unit>) {}
-    open fun requestVideoCallPermissions(onGranted: Function0<Unit>) {}
+    open fun requestCameraQRScanner(onGranted: KFunction0<Unit>) {}
+    open fun requestCameraQRScanner(onGranted: KFunction0<Unit>, onDenied: KFunction0<Unit>) {}
+    open fun requestContacts(onGranted: KFunction0<Unit>, onDenied: KFunction0<Unit>) {}
+    open fun requestMedia(onGranted: KFunction0<Unit>) {}
+    open fun requestMediaDownload(onGranted: KFunction0<Unit>) {}
+    open fun requestMicrophone(onGranted: KFunction0<Unit>, onDenied: KFunction0<Unit>) {}
+    open fun requestVideoCallPermissions(onGranted: KFunction0<Unit>) {}
     open fun requireAppActivity(): AppActivity = AppActivity()
 
     open fun setActionBarDisplayHomeAsUpEnabled(): Toolbar? = null
@@ -136,6 +136,6 @@ open class AppFragment : Fragment {
 
     open fun setOnBackPressed(callback: Func0<Boolean>) {}
     open fun setOnBackPressed(callback: Func0<Boolean>, priority: Int) {}
-    open fun setOnNewIntentListener(listener: Function1<Intent, Unit>) {}
+    open fun setOnNewIntentListener(listener: KFunction1<Intent, Unit>) {}
     open fun showKeyboard(view: View) {}
 }

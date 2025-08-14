@@ -19,10 +19,11 @@ import com.discord.widgets.chat.MessageManager
 import com.discord.widgets.chat.input.ChatInputViewModel
 import com.github.foxeiz.settings.CatboxSettings
 import com.github.foxeiz.settings.LitterboxSettings
+import com.github.foxeiz.settings.PomfSettings
 import com.lytefast.flexinput.model.Attachment
 import com.uploader.FileHostingService
 import com.uploader.services.Catbox
-import java.util.concurrent.Executors
+import com.uploader.services.Pomf
 
 @Suppress("unused")
 @AliucordPlugin
@@ -32,7 +33,6 @@ class ShareX : Plugin() {
         settingsTab = SettingsTab(PluginSettings::class.java).withArgs(settings, commands)
     }
 
-    private val threadExecutor by lazy { Executors.newSingleThreadExecutor() }
     private val processQueue = mutableMapOf<String, () -> List<String>>()
 
     private lateinit var uploadProcessor: UploadProcessor
@@ -46,6 +46,12 @@ class ShareX : Plugin() {
             PluginSettings.UploadProvider.CATBOX_ANON.value -> Catbox(null)
             PluginSettings.UploadProvider.LITTERBOX.value -> Litterbox(
                 settings.getInt(LitterboxSettings.TIME_KEY, 1)
+            )
+
+            PluginSettings.UploadProvider.POMF.value -> Pomf(
+                settings.getObject<Pomf.ServerConfig>(
+                    PomfSettings.POMF_CONFIG_KEY, Pomf.ServerConfig.default()
+                )
             )
 
             else -> Catbox(null)
@@ -175,6 +181,5 @@ class ShareX : Plugin() {
     override fun stop(ctx: Context) {
         patcher.unpatchAll()
         commands.unregisterAll()
-        threadExecutor.shutdown()
     }
 }

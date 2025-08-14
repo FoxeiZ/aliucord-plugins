@@ -39,15 +39,15 @@ class Catbox(private val userHash: String?) : FileHostingService() {
             putAll(parameters)
         }
 
-        return Http.Request(API_URL, "POST")
+        val response = Http.Request(API_URL, "POST")
             .setHeader("User-Agent", "CatboxClient/1.0")
             .executeWithMultipartForm(allParams)
-            .use { response ->
-                if (response.statusCode != 200) {
-                    throw Exception("Failed to make request: ${response.statusCode} ${response.statusMessage}")
-                }
-                return response.text()
-            }
+
+        if (response.statusCode != 200) {
+            throw Exception("Failed to make request: ${response.statusCode} ${response.statusMessage}")
+        }
+        return response.text()
+
     }
 
     private fun isCatboxError(response: String, errorMessage: String): Boolean =
