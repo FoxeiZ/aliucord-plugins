@@ -104,14 +104,14 @@ class PluginSettings(private val settings: SettingsAPI, private val commands: Co
                 UploadProvider.CATBOX_ANON.value,
                 Utils.createCheckedSetting(
                     ctx, CheckedSetting.ViewType.RADIO,
-                    "Catbox (anon)", "Catbox anonymous upload"
+                    "Catbox (anon)", "Max of 200MB per file, no user hash required"
                 )
             ),
             UploadProviderOption(
                 UploadProvider.CATBOX_USER.value,
                 Utils.createCheckedSetting(
                     ctx, CheckedSetting.ViewType.RADIO,
-                    "Catbox", "Catbox with user hash"
+                    "Catbox", "Max of 200MB per file, with user hash"
                 ),
                 { context, settings -> CatboxSettings(context, settings) },
                 extraCommandFactory = CatboxCommands.Companion
@@ -120,7 +120,7 @@ class PluginSettings(private val settings: SettingsAPI, private val commands: Co
                 UploadProvider.LITTERBOX.value,
                 Utils.createCheckedSetting(
                     ctx, CheckedSetting.ViewType.RADIO,
-                    "Litterbox", "Litterbox upload"
+                    "Litterbox", "Max of 1GB per file, remove after 1 (or set time) hour(s)"
                 ),
                 { context, settings -> LitterboxSettings(context, settings) }
             )
