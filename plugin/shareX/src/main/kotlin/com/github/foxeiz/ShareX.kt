@@ -1,5 +1,6 @@
 package com.github.foxeiz
 
+import Litterbox
 import android.content.Context
 import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
@@ -16,7 +17,8 @@ import com.discord.utilities.captcha.CaptchaHelper
 import com.discord.widgets.chat.MessageContent
 import com.discord.widgets.chat.MessageManager
 import com.discord.widgets.chat.input.ChatInputViewModel
-import com.github.foxeiz.settings.CatboxSetting
+import com.github.foxeiz.settings.CatboxSettings
+import com.github.foxeiz.settings.LitterboxSettings
 import com.lytefast.flexinput.model.Attachment
 import com.uploader.FileHostingService
 import com.uploader.services.Catbox
@@ -27,7 +29,7 @@ import java.util.concurrent.Executors
 class ShareX : Plugin() {
 
     init {
-        settingsTab = SettingsTab(PluginSettings::class.java).withArgs(settings)
+        settingsTab = SettingsTab(PluginSettings::class.java).withArgs(settings, commands)
     }
 
     private val threadExecutor by lazy { Executors.newSingleThreadExecutor() }
@@ -38,18 +40,20 @@ class ShareX : Plugin() {
     private fun createUploadProvider(): FileHostingService {
         return when (settings.getString(PluginSettings.UPLOAD_SERVICE_KEY, "catbox-anon")) {
             PluginSettings.UploadProvider.CATBOX_USER.value -> Catbox(
-                settings.getString(CatboxSetting.USER_HASH_KEY, null)
+                settings.getString(CatboxSettings.USER_HASH_KEY, null)
             )
 
             PluginSettings.UploadProvider.CATBOX_ANON.value -> Catbox(null)
+            PluginSettings.UploadProvider.LITTERBOX.value -> Litterbox(
+                settings.getInt(LitterboxSettings.TIME_KEY, 1)
+            )
+
             else -> Catbox(null)
         }
     }
 
     override fun start(ctx: Context) {
-        val uploadProvider = createUploadProvider()
-        uploadProcessor = UploadProcessor(ctx, uploadProvider, logger)
-
+        uploadProcessor = UploadProcessor(ctx, ::createUploadProvider, logger)
         val commandRegistry = CommandRegistry(commands)
         commandRegistry.registerDebugCommands()
 

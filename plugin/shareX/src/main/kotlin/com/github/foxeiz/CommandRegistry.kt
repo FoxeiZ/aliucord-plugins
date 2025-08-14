@@ -34,7 +34,7 @@ class CommandRegistry(private val commands: CommandsAPI) {
                     )
                 }
                 CommandsAPI.CommandResult(result.toString(), null, false)
-            } catch (e: ClassNotFoundException) {
+            } catch (_: ClassNotFoundException) {
                 CommandsAPI.CommandResult("Class not found: $clazzName", null, false)
             }
         }

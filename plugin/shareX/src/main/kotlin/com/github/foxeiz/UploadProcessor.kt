@@ -10,7 +10,7 @@ import com.uploader.FileHostingService
 
 class UploadProcessor(
     private val context: Context,
-    private val uploadProvider: FileHostingService,
+    private val uploadProviderFactory: () -> FileHostingService,
     private val logger: Logger
 ) {
     private val notificationHelper = NotificationHelper(context)
@@ -23,6 +23,8 @@ class UploadProcessor(
         val uploadedUrls = mutableListOf<String>()
         val errors = mutableListOf<String>()
         val notificationId = System.currentTimeMillis().toInt()
+
+        val uploadProvider: FileHostingService = uploadProviderFactory()
 
         attachments.forEach { attachment ->
             try {
@@ -82,6 +84,6 @@ class UploadProcessor(
             ?: attachment.uri.toString().substringAfterLast('.', "").trim()
                 .ifEmpty { "bin" }
 
-        return uploadProvider.isSupportedFileExtension(fileType)
+        return uploadProviderFactory().isSupportedFileExtension(fileType)
     }
 }

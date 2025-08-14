@@ -2,17 +2,15 @@ package com.github.foxeiz.settings
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.text.Editable
-import android.text.TextWatcher
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.aliucord.api.SettingsAPI
 import com.aliucord.utils.DimenUtils
-import com.aliucord.views.TextInput
+import com.github.foxeiz.PluginUtils
 import com.lytefast.flexinput.R
 
 @SuppressLint("SetTextI18n", "ViewConstructor")
-class CatboxSetting(context: Context, settings: SettingsAPI) : LinearLayout(context) {
+class CatboxSettings(context: Context, settings: SettingsAPI) : LinearLayout(context) {
     companion object {
         const val USER_HASH_KEY = "catbox_userhash"
     }
@@ -30,23 +28,16 @@ class CatboxSetting(context: Context, settings: SettingsAPI) : LinearLayout(cont
             addView(this)
         }
 
-        TextInput(
+        PluginUtils.createTextInput(
             context,
-            "Enter your Catbox user hash",
+            this,
+            "Enter your Catbox user agent",
             settings.getString(USER_HASH_KEY, ""),
-            object : TextWatcher {
-                override fun beforeTextChanged(
-                    s: CharSequence?, start: Int, count: Int, after: Int
-                ) {
+            PluginUtils.createTextWatcher(
+                {
+                    settings.setString(USER_HASH_KEY, it?.toString() ?: "")
                 }
-
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                override fun afterTextChanged(s: Editable?) {
-                    settings.setString(USER_HASH_KEY, s?.toString() ?: "")
-                }
-            }
-        ).apply {
-            this@CatboxSetting.addView(this)
-        }
+            )
+        )
     }
 }

@@ -2,31 +2,34 @@ package com.github.foxeiz
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.View
+import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.aliucord.Utils
+import com.aliucord.api.CommandsAPI
 import com.aliucord.api.SettingsAPI
 import com.aliucord.fragments.SettingsPage
 import com.aliucord.utils.DimenUtils
 import com.aliucord.views.Divider
-import com.aliucord.views.TextInput
 import com.discord.views.CheckedSetting
 import com.discord.views.RadioManager
-import com.github.foxeiz.settings.CatboxSetting
+import com.github.foxeiz.commands.CatboxCommands
+import com.github.foxeiz.settings.CatboxSettings
+import com.github.foxeiz.settings.LitterboxSettings
 import com.lytefast.flexinput.R
 
 private data class UploadProviderOption(
     val name: String,
     val checkedSetting: CheckedSetting,
-    val extraSettingFactory: ((Context, SettingsAPI) -> CatboxSetting)? = null
+    val extraSettingFactory: ((Context, SettingsAPI) -> ViewGroup)? = null,
+    val extraCommandFactory: CatboxCommands.Companion? = null
 ) {
     override fun toString(): String = name
 }
 
-class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
+class PluginSettings(private val settings: SettingsAPI, private val commands: CommandsAPI) :
+    SettingsPage() {
 
     companion object {
         const val USER_AGENT_KEY = "user_agent"
@@ -38,16 +41,11 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
 
     enum class UploadProvider(val value: String) {
         CATBOX_ANON("catbox-anon"),
-        CATBOX_USER("catbox-user")
+        CATBOX_USER("catbox-user"),
+        LITTERBOX("litterbox")
     }
 
-    private fun createTextWatcher(afterCallback: (Editable?) -> Unit): TextWatcher {
-        return object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) = afterCallback(s)
-        }
-    }
+    private var removeCommandCallback: ((CommandsAPI) -> Unit)? = null
 
     @SuppressLint("SetTextI18n")
     override fun onViewBound(view: View) {
@@ -114,8 +112,18 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
                 Utils.createCheckedSetting(
                     ctx, CheckedSetting.ViewType.RADIO,
                     "Catbox", "Catbox with user hash"
-                )
-            ) { context, settings -> CatboxSetting(context, settings) }
+                ),
+                { context, settings -> CatboxSettings(context, settings) },
+                extraCommandFactory = CatboxCommands.Companion
+            ),
+            UploadProviderOption(
+                UploadProvider.LITTERBOX.value,
+                Utils.createCheckedSetting(
+                    ctx, CheckedSetting.ViewType.RADIO,
+                    "Litterbox", "Litterbox upload"
+                ),
+                { context, settings -> LitterboxSettings(context, settings) }
+            )
         )
     }
 
@@ -124,10 +132,15 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
         providerOptions: List<UploadProviderOption>,
         extraSettingLayout: LinearLayout
     ) {
-        fun updateExtraSettings(entry: UploadProviderOption) {
+        fun updateEntry(entry: UploadProviderOption) {
             extraSettingLayout.removeAllViews()
             entry.extraSettingFactory?.let { factory ->
                 extraSettingLayout.addView(factory(ctx, settings))
+            }
+            entry.extraCommandFactory?.let {
+                removeCommandCallback?.invoke(commands)
+                removeCommandCallback = it::unregisterAll
+                it.registerAll(commands)
             }
         }
 
@@ -139,14 +152,14 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
                 entry.checkedSetting.e {
                     a(entry.checkedSetting)
                     settings.setString(UPLOAD_SERVICE_KEY, entry.name)
-                    updateExtraSettings(entry)
+                    updateEntry(entry)
                 }
                 addView(entry.checkedSetting)
             }
 
             selected?.let {
                 a(it.checkedSetting)
-                updateExtraSettings(it)
+                updateEntry(it)
             }
         }
     }
@@ -180,19 +193,20 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
         label: String,
         settingsKey: String
     ) {
-        TextInput(
+        PluginUtils.createTextInput(
             ctx,
+            this.linearLayout,
             label,
             settings.getString(settingsKey, ""),
-            createTextWatcher { s -> settings.setString(settingsKey, s?.toString() ?: "") }
-        ).apply {
-            layoutParams = LinearLayout.LayoutParams(
+            PluginUtils.createTextWatcher({ s ->
+                settings.setString(settingsKey, s?.toString() ?: "")
+            }),
+            LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 setMargins(0, padding, 0, 0)
             }
-            this@PluginSettings.addView(this)
-        }
+        )
     }
 }
