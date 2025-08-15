@@ -1,4 +1,4 @@
-version = "1.3.0" // Plugin version. Increment this to trigger the updater
+version = "1.3.1" // Plugin version. Increment this to trigger the updater
 description =
     "Upload >10mb file for non-nitro user." // Plugin description that will be shown to user
 
