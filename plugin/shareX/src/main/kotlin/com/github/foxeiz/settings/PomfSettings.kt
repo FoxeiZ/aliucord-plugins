@@ -20,161 +20,172 @@ private class ServerDetector {
 
     companion object {
 
-        private val logger = Logger("ServerDetector")
+        const val TAG = "ShareX.Pomf.ServerDetector"
+        private val logger = Logger(TAG)
+
+        val titleRegex = Regex(
+            Pattern.compile(
+                """<title>(.*?)</title>""",
+                Pattern.CASE_INSENSITIVE or Pattern.DOTALL
+            )
+        )
+        val metaGeneratorRegex = Regex(
+            Pattern.compile(
+                """<meta\s+name=["']?generator["']?\s+content=["'](.*?)["']""",
+                Pattern.CASE_INSENSITIVE or Pattern.DOTALL
+            )
+        )
+        val maxSizeRegex = Regex("""Max upload size is (\d+)(?:&nbsp;\s?)?([mMiIbBgG]+)""")
+        val expireTimeRegex = Regex("""files expire after (\d+)\s*(\w+)""")
+
+        private val uguuIndicators =
+            listOf("grill-wrapper", "upload-clipboard-btn", "js/uguu.js", "pomf.min.js")
+        private val pomfIndicators = listOf("upload.php", "tools.html", "js/app.js", "ShareX")
 
         private fun extractGroup(pattern: Regex, input: String, group: Int = 1): String? =
             pattern.find(input, 0)?.groupValues?.getOrNull(group)
 
-
-        private fun extractTitle(html: String): String? =
-            extractGroup(
-                Regex(
-                    Pattern.compile(
-                        """<title>(.*?)</title>""",
-                        Pattern.CASE_INSENSITIVE or Pattern.DOTALL
-                    )
-                ),
-                html
-            )
+        private fun extractTitle(html: String): String? = extractGroup(titleRegex, html)
 
         private fun extractMetaGenerator(html: String): String? =
-            extractGroup(
-                Regex(
-                    Pattern.compile(
-                        """<meta\s+name=["']?generator["']?\s+content=["'](.*?)["']""",
-                        Pattern.CASE_INSENSITIVE or Pattern.DOTALL
-                    )
-                ),
-                html
-            )
+            extractGroup(metaGeneratorRegex, html)
+
+        private fun parseMaxSize(html: String): Pair<Int, String> {
+            val maxSizeMatch = maxSizeRegex.find(html, 0)
+                ?: return Pair(0, "MiB")
+
+            val maxSizeStr = maxSizeMatch.groupValues.getOrNull(1) ?: ""
+            val maxSizeUnit = maxSizeMatch.groupValues.getOrNull(2) ?: "MiB"
+
+            val maxSize = try {
+                if (maxSizeStr.trim().isEmpty()) 0 else maxSizeStr.toInt()
+            } catch (_: NumberFormatException) {
+                logger.warn("Failed to parse max size number: $maxSizeStr")
+                0
+            }
+
+            return Pair(maxSize, maxSizeUnit)
+        }
+
+        private fun parseExpireTime(html: String): Pair<String, String> {
+            val expireMatch = expireTimeRegex.find(html, 0)
+                ?: return Pair("", "")
+
+            val expireTime = expireMatch.groupValues.getOrNull(1) ?: ""
+            val expireUnit = expireMatch.groupValues.getOrNull(2) ?: ""
+
+            return Pair(expireTime, expireUnit)
+        }
 
         fun detect(url: String): Pomf.ServerConfig {
             logger.info("Detecting server type for URL: $url")
 
-            val response = Http.Request(url, "GET")
-                .setFollowRedirects(true)
-                .setRequestTimeout(30000)
-                .execute()
-            logger.warn("HTTP request executed for URL: $url")
-
-            if (!response.ok()) {
-                logger.warn("HTTP request failed with status code: ${response.statusCode}, message: ${response.statusMessage}")
-                throw Exception("Failed to fetch URL: ${response.statusCode} ${response.statusMessage}")
+            val response = try {
+                Http.Request(url, "GET")
+                    .setFollowRedirects(true)
+                    .setRequestTimeout(30000)
+                    .execute()
+            } catch (e: Exception) {
+                logger.error("Network error while fetching URL: $url", e)
+                throw Exception("Network error: ${e.message}", e)
             }
 
-            val html = response.text().toString()
-            logger.info("Fetched HTML content from $url")
-            logger.warn("HTML content length: ${html.length}")
-            logger.warn(html)
-
-            val serverType = detectServerType(html)
-            logger.warn("Detected server type: $serverType")
-
-            val config = when (serverType) {
-                Pomf.ServerType.UGUU -> {
-                    logger.warn("Parsing UGUU server configuration")
-                    parseUguuConfig(url, html)
+            try {
+                if (!response.ok()) {
+                    throw Exception("HTTP error: ${response.statusCode} ${response.statusMessage}")
                 }
 
-                Pomf.ServerType.POMF -> {
-                    logger.warn("Parsing POMF server configuration")
-                    parsePomfConfig(url, html)
-                }
+                val html = response.text()
+                logger.debug("Fetched HTML content from $url (${html.length} chars)")
 
-                else -> {
-                    logger.warn("Unknown server type detected, returning default configuration")
-                    Pomf.ServerConfig(Pomf.ServerType.UNKNOWN, url)
+                val serverType = detectServerType(html)
+                logger.debug("Detected server type: $serverType")
+
+                return when (serverType) {
+                    Pomf.ServerType.UGUU -> parseUguuConfig(url, html)
+                    Pomf.ServerType.POMF -> parsePomfConfig(url, html)
+                    else -> Pomf.ServerConfig(Pomf.ServerType.UNKNOWN, url)
                 }
+            } finally {
+                response.close()
             }
-
-            logger.warn("Final server type: ${config.serverType}")
-            logger.warn("Final server configuration: $config")
-
-            return config
         }
 
         fun parseUguuConfig(url: String, html: String): Pomf.ServerConfig {
-            logger.warn("Parsing UGUU server configuration for URL: $url")
+            val (maxSize, maxSizeUnit) = parseMaxSize(html)
+            val (expireTime, expireUnit) = parseExpireTime(html)
 
-            val maxSizeRegex = """Max upload size is (\d+)(?:&nbsp;\s?)?([mMiIbBgG]+)""".toRegex()
-            val maxSize = maxSizeRegex.find(html, 0)?.groupValues?.get(1) ?: ""
-            logger.warn("Extracted max upload size: $maxSize MiB")
-
-            val expireRegex = """files expire after (\d+)\s*(\w+)""".toRegex()
-            val expireMatch = expireRegex.find(html, 0)
-            val expireTime = expireMatch?.groupValues?.get(1) ?: ""
-            val expireUnit = expireMatch?.groupValues?.get(2) ?: ""
-            logger.warn("Extracted expire time: $expireTime $expireUnit")
+            if (maxSize == 0) {
+                logger.warn("Could not parse max upload size for Uguu server: $url")
+            }
 
             return Pomf.ServerConfig(
                 Pomf.ServerType.UGUU,
                 url,
-                maxUploadSize = maxSize.trim().isEmpty().let { if (it) 0 else maxSize.toInt() },
+                maxUploadSize = maxSize,
+                maxSizeUnit = maxSizeUnit,
                 expireTime = expireTime,
-                expireTimeUnit = expireUnit,
+                expireTimeUnit = expireUnit
             )
         }
 
         fun parsePomfConfig(url: String, html: String): Pomf.ServerConfig {
-            logger.warn("Parsing POMF server configuration for URL: $url")
+            val (maxSize, maxSizeUnit) = parseMaxSize(html)
 
-            val maxSizeRegex = """Max upload size is (\d+)(?:&nbsp;\s?)?([mMiIbBgG]+)""".toRegex()
-            val maxSize = maxSizeRegex.find(html, 0)?.groupValues?.get(1) ?: ""
-            val maxSizeUnit = maxSizeRegex.find(html, 0)?.groupValues?.get(2) ?: "MiB"
-            logger.warn("Extracted max upload size: $maxSize $maxSizeUnit")
+            if (maxSize == 0) {
+                logger.warn("Could not parse max upload size for Pomf server: $url")
+            }
 
             return Pomf.ServerConfig(
                 Pomf.ServerType.POMF,
                 url,
-                maxUploadSize = maxSize.trim().isEmpty().let { if (it) 0 else maxSize.toInt() },
+                maxUploadSize = maxSize,
+                maxSizeUnit = maxSizeUnit
             )
         }
 
         private fun detectServerType(html: String): Pomf.ServerType {
             val generator = extractMetaGenerator(html)
-            logger.warn("Extracted meta generator: $generator")
 
-            if (generator == null) {
-                logger.warn("No meta generator found, returning UNKNOWN")
-                return Pomf.ServerType.UNKNOWN
+            generator?.let {
+                return when {
+                    it.contains("Uguu", ignoreCase = true) -> {
+                        logger.info("Detected Uguu server via meta generator")
+                        Pomf.ServerType.UGUU
+                    }
+
+                    it.contains("Pomf", ignoreCase = true) -> {
+                        logger.info("Detected Pomf server via meta generator")
+                        Pomf.ServerType.POMF
+                    }
+
+                    else -> detectByIndicators(html)
+                }
             }
 
+            return detectByIndicators(html)
+        }
+
+        private fun detectByIndicators(html: String): Pomf.ServerType {
+            val uguuScore = uguuIndicators.count { html.contains(it, ignoreCase = true) }
+            val pomfScore = pomfIndicators.count { html.contains(it, ignoreCase = true) }
+
+            logger.info("Detection scores - Uguu: $uguuScore, Pomf: $pomfScore")
+
             return when {
-                generator.contains("Uguu", ignoreCase = true) -> {
-                    logger.warn("Meta generator contains 'Uguu', returning UGUU")
+                uguuScore > pomfScore -> {
+                    logger.info("Detected Uguu server via content indicators")
                     Pomf.ServerType.UGUU
                 }
 
-                generator.contains("Pomf", ignoreCase = true) -> {
-                    logger.warn("Meta generator contains 'Pomf', returning POMF")
+                pomfScore > uguuScore -> {
+                    logger.info("Detected Pomf server via content indicators")
                     Pomf.ServerType.POMF
                 }
 
                 else -> {
-                    logger.warn("Meta generator did not match, checking structure indicators")
-                    val uguuIndicators =
-                        listOf("grill-wrapper", "upload-clipboard-btn", "js/uguu.js", "pomf.min.js")
-                    val pomfIndicators = listOf("upload.php", "tools.html", "js/app.js", "ShareX")
-                    val uguuScore = uguuIndicators.count { html.contains(it, ignoreCase = true) }
-                    val pomfScore = pomfIndicators.count { html.contains(it, ignoreCase = true) }
-                    logger.warn("Uguu indicator score: $uguuScore")
-                    logger.warn("Pomf indicator score: $pomfScore")
-                    when {
-                        uguuScore > pomfScore -> {
-                            logger.warn("Uguu score higher, returning UGUU")
-                            Pomf.ServerType.UGUU
-                        }
-
-                        pomfScore > uguuScore -> {
-                            logger.warn("Pomf score higher, returning POMF")
-                            Pomf.ServerType.POMF
-                        }
-
-                        else -> {
-                            logger.warn("Scores equal or zero, returning UNKNOWN")
-                            Pomf.ServerType.UNKNOWN
-                        }
-                    }
+                    logger.info("Could not determine server type")
+                    Pomf.ServerType.UNKNOWN
                 }
             }
         }
@@ -189,12 +200,29 @@ class PomfSettings(context: Context, settings: SettingsAPI) : LinearLayout(conte
     }
 
     fun makeConfigInfo(serverConfig: Pomf.ServerConfig): String {
-        return if (serverConfig.serverType != Pomf.ServerType.UNKNOWN) {
-            "Current server: ${serverConfig.serverType.name} (${serverConfig.url})\n" +
-                    "Max upload size: ${serverConfig.maxUploadSize} MiB\n" +
-                    "Expire time: ${serverConfig.expireTime} ${serverConfig.expireTimeUnit}"
-        } else {
-            "No valid Pomf/Uguu server configured."
+        if (serverConfig.url.trim().isEmpty()) return "No Pomf/Uguu server configured."
+
+        return buildString {
+            append(
+                if (serverConfig.serverType != Pomf.ServerType.UNKNOWN)
+                    "Current server: ${serverConfig.serverType.name} (${serverConfig.url})\n"
+                else
+                    "Unknown server type at ${serverConfig.url}\n"
+            )
+
+            append(
+                if (serverConfig.maxUploadSize != null)
+                    "Max upload size: ${serverConfig.maxUploadSize} ${serverConfig.maxSizeUnit ?: "MiB"}\n"
+                else
+                    "Max upload size: Unknown\n"
+            )
+
+            append(
+                if (serverConfig.expireTime != null && serverConfig.expireTimeUnit != null)
+                    "Expire time: ${serverConfig.expireTime} ${serverConfig.expireTimeUnit}\n"
+                else
+                    "Expire time: Unknown\n"
+            )
         }
     }
 
@@ -215,7 +243,7 @@ class PomfSettings(context: Context, settings: SettingsAPI) : LinearLayout(conte
         var serverConfig: Pomf.ServerConfig =
             settings.getObject<Pomf.ServerConfig>(POMF_CONFIG_KEY, Pomf.ServerConfig.default())
 
-        val configInfo = TextView(context, null, 0, R.i.UiKit_Settings_Item_Header).apply {
+        val configInfo = TextView(context, null, 0, R.i.UiKit_Settings_Item_SubText).apply {
             text = makeConfigInfo(serverConfig)
             addView(this)
         }
@@ -254,12 +282,11 @@ class PomfSettings(context: Context, settings: SettingsAPI) : LinearLayout(conte
                             }
                             val config = ServerDetector.detect(url)
                             Utils.mainThread.post {
-                                logger.info("Run in main thread")
                                 configInfo.text = makeConfigInfo(config)
                                 settings.setObject(POMF_CONFIG_KEY, config)
                             }
                         } catch (e: Throwable) {
-                            configInfo.text = "Failed to detect server: ${e.message}"
+                            configInfo.text = "Failed to detect server: ${e.stackTraceToString()}"
                             logger.error(e)
                             return@submit
                         }
