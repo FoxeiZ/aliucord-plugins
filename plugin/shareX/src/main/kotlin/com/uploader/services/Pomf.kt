@@ -26,6 +26,7 @@ class Pomf(
         val serverType: ServerType,
         val url: String,
         val maxUploadSize: Int? = null,
+        val maxSizeUnit: String? = null,
         val expireTime: String? = null,
         val expireTimeUnit: String? = null,
     ) {
@@ -75,7 +76,19 @@ class Pomf(
 
     override fun isSupportedFileExtension(extension: String): Boolean {
         val unsupportedExtensions = setOf(
-            "exe", "scr", "cpl", "doc", "docx", "jar"
+            "exe",
+            "scr",
+            "com",
+            "vbs",
+            "bat",
+            "cmd",
+            "htm",
+            "html",
+            "jar",
+            "msi",
+            "apk",
+            "phtml",
+            "svg"
         )
         return !unsupportedExtensions.contains(extension.lowercase())
     }
