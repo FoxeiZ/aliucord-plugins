@@ -27,7 +27,7 @@ import com.uploader.services.Pomf
 
 @Suppress("unused")
 @AliucordPlugin
-class ShareX : Plugin() {
+class BoxUpload : Plugin() {
 
     init {
         settingsTab = SettingsTab(PluginSettings::class.java).withArgs(settings, commands)

@@ -20,7 +20,7 @@ private class ServerDetector {
 
     companion object {
 
-        const val TAG = "ShareX.Pomf.ServerDetector"
+        const val TAG = "BoxUpload.Pomf.ServerDetector"
         private val logger = Logger(TAG)
 
         val titleRegex = Regex(
