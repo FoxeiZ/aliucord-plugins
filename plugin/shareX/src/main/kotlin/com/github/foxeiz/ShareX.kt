@@ -1,6 +1,5 @@
 package com.github.foxeiz
 
-import Litterbox
 import android.content.Context
 import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
@@ -23,6 +22,7 @@ import com.github.foxeiz.settings.PomfSettings
 import com.lytefast.flexinput.model.Attachment
 import com.uploader.FileHostingService
 import com.uploader.services.Catbox
+import com.uploader.services.Litterbox
 import com.uploader.services.Pomf
 
 @Suppress("unused")
