@@ -1,11 +1,9 @@
+package com.uploader.services
+
 import com.aliucord.Http
 import com.uploader.FileHostingService
 import java.io.File
 
-
-private enum class RequestType(val value: String) {
-    FILE_UPLOAD("fileupload"),
-}
 
 class Litterbox(private val duration: Int = 1) : FileHostingService() {
 
@@ -14,11 +12,9 @@ class Litterbox(private val duration: Int = 1) : FileHostingService() {
     }
 
     private fun makePostRequest(
-        reqType: RequestType,
         parameters: Map<String, Any> = emptyMap()
     ): String {
         val allParams = mutableMapOf<String, Any>().apply {
-            put("reqtype", reqType.value)
             putAll(parameters)
         }
 
@@ -46,7 +42,6 @@ class Litterbox(private val duration: Int = 1) : FileHostingService() {
     override fun upload(file: File): String {
         require(file.name.trim().isNotEmpty()) { "'name' must not be blank" }
         return makePostRequest(
-            RequestType.FILE_UPLOAD,
             mapOf("fileToUpload" to file, "time" to duration.toString() + "h")
         )
     }

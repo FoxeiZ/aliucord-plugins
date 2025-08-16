@@ -4,8 +4,7 @@ import com.aliucord.Http
 import com.uploader.FileHostingService
 import java.io.File
 
-
-data class PomfFile(
+internal data class PomfFile(
     val hash: String,
     val filename: String,
     val url: String,
@@ -13,7 +12,7 @@ data class PomfFile(
     val dupe: Boolean,
 )
 
-data class PomfResponse(
+internal data class PomfResponse(
     val success: Boolean,
     val files: List<PomfFile>
 )

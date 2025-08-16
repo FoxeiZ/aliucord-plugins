@@ -9,7 +9,7 @@ import com.uploader.utils.toCatboxFiles
 import java.io.File
 
 
-private enum class RequestType(val value: String) {
+internal enum class RequestType(val value: String) {
     FILE_UPLOAD("fileupload"),
     URL_UPLOAD("urlupload"),
     DELETE_FILES("deletefiles"),
