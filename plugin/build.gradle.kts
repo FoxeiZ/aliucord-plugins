@@ -33,14 +33,6 @@ subprojects {
             minSdk = 24
         }
 
-        sourceSets {
-            getByName("main") {
-                val stubsPath = "${rootDir}/stubs"
-                logger.lifecycle("Configuring stubs path: $stubsPath")
-                kotlin.srcDirs(stubsPath)
-            }
-        }
-
         buildFeatures {
             renderScript = false
             shaders = false

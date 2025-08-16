@@ -20,3 +20,13 @@ aliucord {
     // Set this if the plugin is unfinished
     excludeFromUpdaterJson.set(false)
 }
+
+android {
+    sourceSets {
+        getByName("main") {
+            val stubsPath = "${rootDir}/stubs"
+            logger.lifecycle("Configuring stubs path: $stubsPath")
+            kotlin.srcDir(stubsPath)
+        }
+    }
+}
