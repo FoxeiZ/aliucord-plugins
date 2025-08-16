@@ -33,6 +33,14 @@ subprojects {
             minSdk = 24
         }
 
+        sourceSets {
+            getByName("main") {
+                val stubsPath = "${rootDir}/stubs"
+                logger.lifecycle("Configuring stubs path: $stubsPath")
+                kotlin.srcDirs(stubsPath)
+            }
+        }
+
         buildFeatures {
             renderScript = false
             shaders = false
@@ -69,6 +77,7 @@ subprojects {
 
         discord(libs.discord)
         compileOnly(libs.aliucord)
+
         // compileOnly("com.github.Aliucord:Aliucord:unspecified")
     }
 
@@ -77,6 +86,6 @@ subprojects {
             jvmTarget = "11"
             freeCompilerArgs += "-Xopt-in=kotlin.RequiresOptIn"
         }
+        exclude("**/com/discord/**")
     }
 }
-

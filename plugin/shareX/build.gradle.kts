@@ -20,18 +20,3 @@ aliucord {
     // Set this if the plugin is unfinished
     excludeFromUpdaterJson.set(false)
 }
-
-android {
-    sourceSets {
-        getByName("main") {
-            java.srcDirs("stubs")
-        }
-    }
-}
-
-dependencies {
-    configurations.all {
-        exclude(group = "com.discord", module = "media_picker")
-        exclude(group = "com.discord", module = "app")
-    }
-}
