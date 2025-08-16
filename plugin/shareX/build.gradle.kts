@@ -24,9 +24,7 @@ aliucord {
 android {
     sourceSets {
         getByName("main") {
-            val stubsPath = "${rootDir}/stubs"
-            logger.lifecycle("Configuring stubs path: $stubsPath")
-            kotlin.srcDir(stubsPath)
+            kotlin.srcDir("stubs")
         }
     }
 }
