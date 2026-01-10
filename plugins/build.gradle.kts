@@ -17,8 +17,7 @@ subprojects {
     }
 
     configure<LibraryExtension> {
-        // TODO: Change to your package name
-        namespace = "com.github.yournamehere"
+        namespace = "com.github.foxeiz"
         compileSdk = 36
 
         defaultConfig {
@@ -33,17 +32,14 @@ subprojects {
         }
 
         compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_11
-            targetCompatibility = JavaVersion.VERSION_11
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
         }
     }
 
     configure<AliucordExtension> {
-        // TODO: Change to your name and user ID
-        author("yournamehere", 0L, hyperlink = true)
-
-        // TODO: Change to your repository
-        github("https://github.com/Aliucord/plugins-template")
+        author("FoxeiZ", 315309646179074048, hyperlink = true)
+        github("https://github.com/FoxeiZ/aliucord-plugins")
     }
 
     configure<KtlintExtension> {
@@ -56,7 +52,7 @@ subprojects {
 
     configure<KotlinAndroidExtension> {
         compilerOptions {
-            jvmTarget = JvmTarget.JVM_11
+            jvmTarget = JvmTarget.JVM_21
             optIn.add("kotlin.RequiresOptIn")
         }
     }
@@ -68,6 +64,7 @@ subprojects {
 
         compileOnly(libs.discord)
         compileOnly(libs.aliucord)
+        compileOnly(libs.aliuhook)
         compileOnly(libs.kotlin.stdlib)
     }
 }

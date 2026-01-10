@@ -1,6 +1,7 @@
 [versions]
-aliucord = "2.3.1"
-aliucord-gradle = "2.1.0"
+aliucord = "2.5.0"
+aliuhook = "1.1.4"
+aliucord-gradle = "2.2.0"
 android = "8.13.0"
 discord = "126021"
 kotlin = "2.2.0"
@@ -9,6 +10,7 @@ ktlint-plugin = "13.1.0"
 
 [libraries]
 aliucord = { module = "com.aliucord:Aliucord", version.ref = "aliucord" }
+aliuhook = { module = "com.aliucord:Aliuhook", version.ref = "aliuhook" }
 discord = { module = "com.discord:discord", version.ref = "discord" }
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
 
