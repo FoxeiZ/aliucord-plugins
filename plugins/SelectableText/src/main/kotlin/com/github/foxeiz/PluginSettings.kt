@@ -27,9 +27,9 @@ class PluginSettings(private val settings: SettingsAPI) :
 
         setActionBarTitle("Selectable Text")
         // embed settings
-        createHeader(context, "Embed")
+        createHeader(context!!, "Embed")
         createPatcherEntry(
-            context,
+            context!!,
             SettingKeyInfo.EMBED_DESCRIPTION
         )
     }

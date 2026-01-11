@@ -31,7 +31,7 @@ class CatboxSettings(context: Context, settings: SettingsAPI) : LinearLayout(con
         PluginUtils.createTextInput(
             context,
             this,
-            "Enter your Catbox user agent",
+            "Enter your Catbox user hash key",
             settings.getString(USER_HASH_KEY, ""),
             PluginUtils.createTextWatcher(
                 {

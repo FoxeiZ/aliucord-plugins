@@ -5,14 +5,14 @@ import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
 import com.aliucord.patcher.before
-import com.discord.api.activity.Activity
-import com.discord.api.application.Application
-import com.discord.api.message.MessageReference
-import com.discord.api.message.activity.MessageActivity
-import com.discord.api.message.allowedmentions.MessageAllowedMentions
-import com.discord.models.user.User
+import com.aliucord.utils.ReflectUtils
+import com.discord.api.message.MessageFlags
+import com.discord.api.message.MessageTypes
+import com.discord.models.message.Message
 import com.discord.stores.StoreMessages
-import com.discord.utilities.captcha.CaptchaHelper
+import com.discord.stores.StoreStream
+import com.discord.utilities.message.LocalMessageCreatorsKt
+import com.discord.utilities.time.ClockFactory
 import com.discord.widgets.chat.MessageContent
 import com.discord.widgets.chat.MessageManager
 import com.discord.widgets.chat.input.ChatInputViewModel
@@ -24,6 +24,7 @@ import com.uploader.FileHostingService
 import com.uploader.services.Catbox
 import com.uploader.services.Litterbox
 import com.uploader.services.Pomf
+import java.util.concurrent.ConcurrentLinkedQueue
 
 @Suppress("unused")
 @AliucordPlugin
@@ -33,7 +34,15 @@ class BoxUpload : Plugin() {
         settingsTab = SettingsTab(PluginSettings::class.java).withArgs(settings, commands)
     }
 
-    private val processQueue = mutableMapOf<String, () -> List<String>>()
+    private object LargeFileHandoff {
+        val uploadQueue = ConcurrentLinkedQueue<UploadPayload>()
+    }
+
+    private data class UploadPayload(
+        val files: List<Attachment<*>>,
+        val originalText: String,
+        val willBeEmpty: Boolean
+    )
 
     private lateinit var uploadProcessor: UploadProcessor
 
@@ -67,62 +76,21 @@ class BoxUpload : Plugin() {
     }
 
     private fun setupPatchers(ctx: Context) {
-        setupStoreMessagesPatcher(ctx)
         setupChatInputPatcher(ctx)
     }
 
-    private fun setupStoreMessagesPatcher(ctx: Context) {
-        patcher.before<StoreMessages>(
-            "sendMessage",
-            Long::class.javaPrimitiveType!!,
-            User::class.java,
-            String::class.java,
-            List::class.java,
-            List::class.java,
-            List::class.java,
-            MessageReference::class.java,
-            MessageAllowedMentions::class.java,
-            Application::class.java,
-            Activity::class.java,
-            MessageActivity::class.java,
-            Long::class.javaObjectType,
-            Long::class.javaObjectType,
-            Integer::class.javaObjectType,
-            CaptchaHelper.CaptchaPayload::class.java
-        ) {
-            if (settings.getBool(PluginSettings.DISABLED_KEY, false)) {
-                return@before
-            }
-
-            @Suppress("UNCHECKED_CAST")
-            val attachments = (it.args[3] as List<Attachment<*>>).toMutableList()
-            val content = it.args[2] as String
-
-            if (!content.endsWith("\uFFFF")) {
-                logger.info("Skipping processing, content does not end with placeholder")
-                return@before
-            }
-
-            // Remove placeholder
-            it.args[2] = content.replace(
-                Regex("""placeholder_\d+_\uffff$"""),
-                ""
-            )
-
-            logger.info("${attachments.size}, processQueue size: ${processQueue.size}, content: $content")
-            processQueue.remove(content)?.let { queue ->
-                val result = queue()
-                if (result.isEmpty()) {
-                    Utils.showToast("No files uploaded", false)
-                } else {
-                    Utils.showToast("Uploaded ${result.size} files", false)
-                    it.args[2] = "${it.args[2] as String}\n${result.joinToString(" ")}"
-                }
-                logger.info("processQueue size: ${processQueue.size}")
+    fun updateProgressMessage(storeMessages: StoreMessages, message: Message, text: String) {
+        Utils.mainThread.post {
+            try {
+                ReflectUtils.setField(Message::class.java, message, "content", text)
+                StoreMessages.`access$handleLocalMessageCreate`(storeMessages, message)
+            } catch (e: Exception) {
+                logger.error("Failed to update progress", e)
             }
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun setupChatInputPatcher(ctx: Context) {
         patcher.before<ChatInputViewModel>(
             "sendMessage",
@@ -132,49 +100,209 @@ class BoxUpload : Plugin() {
             List::class.java,
             Boolean::class.javaPrimitiveType!!,
             Function1::class.java
-        ) {
-            if (settings.getBool(PluginSettings.DISABLED_KEY, false)) {
-                return@before
-            }
-
-            @Suppress("UNCHECKED_CAST")
-            val attachments = (it.args[3] as List<Attachment<*>>).toMutableList()
-            if (attachments.isEmpty()) {
-                return@before
-            }
-
-            var messageContent = it.args[2] as MessageContent
-
-            val largeAttachments = if (settings.getBool(PluginSettings.ALWAYS_UPLOAD_KEY, false)) {
-                attachments.toMutableList()
-            } else {
-                attachments.filter { attachment ->
-                    uploadProcessor.isLargeAttachment(attachment)
+        ) { param ->
+            try {
+                if (settings.getBool(PluginSettings.DISABLED_KEY, false)) {
+                    return@before
                 }
+
+                val attachments = (param.args[3] as List<Attachment<*>>).toMutableList()
+                val largeFiles = if (settings.getBool(PluginSettings.ALWAYS_UPLOAD_KEY, false)) {
+                    attachments.toList()
+                } else {
+                    attachments.filter { uploadProcessor.isLargeAttachment(it) }
+                }
+
+                if (largeFiles.isEmpty()) return@before
+
+                // stop the original method
+                param.result = null
+
+                val context = param.args[0] as Context
+                val messageManager = param.args[1] as MessageManager
+                val originalContent = param.args[2] as MessageContent
+                val compressedImages = param.args[4] as Boolean
+                val onValidation = param.args[5]
+                val viewModel = param.thisObject
+
+                handleLargeFileUpload(
+                    context,
+                    viewModel,
+                    messageManager,
+                    originalContent,
+                    attachments,
+                    largeFiles,
+                    compressedImages,
+                    onValidation
+                )
+
+            } catch (t: Throwable) {
+                logger.error("Error in sendMessage hook", t)
             }
+        }
+    }
 
-            if (largeAttachments.isEmpty()) {
-                return@before
-            }
+    private fun handleLargeFileUpload(
+        context: Context,
+        viewModel: Any,
+        messageManager: MessageManager,
+        originalContent: MessageContent,
+        allAttachments: MutableList<Attachment<*>>,
+        largeFiles: List<Attachment<*>>,
+        compressedImages: Boolean,
+        onValidation: Any
+    ) {
+        val storeMessages = StoreStream.getMessages()
+        val thinkingMsg = createThinkingMessage(largeFiles.size)
 
-            logger.info("Found ${largeAttachments.size} large attachments to upload, content: ${messageContent.textContent}")
+        StoreMessages.`access$handleLocalMessageCreate`(storeMessages, thinkingMsg)
 
-            attachments.removeAll(largeAttachments)
-            messageContent = messageContent.copy(
-                messageContent.textContent + "placeholder_" + System.currentTimeMillis() + "_\uFFFF",
-                messageContent.mentionedUsers
-            )
-            it.args[2] = messageContent
-            it.args[3] = attachments.toList()
-
-            processQueue[messageContent.textContent] = {
-                uploadProcessor.processAttachments(
-                    attachments = largeAttachments,
-                    check = { context, attachment ->
-                        uploadProcessor.isSupportedFile(attachment)
+        Utils.threadPool.execute {
+            try {
+                val uploadedUrls = uploadProcessor.processAttachments(
+                    attachments = largeFiles,
+                    check = { _, att -> uploadProcessor.isSupportedFile(att) },
+                    onProgress = { filename, current, total ->
+                        val progressText = "Uploading `$filename`... ($current/$total)"
+                        updateLocalMessage(storeMessages, thinkingMsg.id, progressText)
                     }
                 )
+
+                Utils.mainThread.post {
+                    storeMessages.deleteMessage(thinkingMsg)
+
+                    if (uploadedUrls.isEmpty()) {
+                        Utils.showToast("Upload failed or cancelled", false)
+                        return@post
+                    }
+
+                    // prepare new content
+                    val newText = if (originalContent.textContent.isEmpty()) {
+                        uploadedUrls.joinToString("\n")
+                    } else {
+                        "${originalContent.textContent}\n${uploadedUrls.joinToString("\n")}"
+                    }
+
+                    val newContent = originalContent.copy(newText, originalContent.mentionedUsers)
+                    allAttachments.removeAll(largeFiles)
+
+                    recallSendMessage(
+                        viewModel,
+                        context,
+                        messageManager,
+                        newContent,
+                        allAttachments,
+                        compressedImages,
+                        onValidation
+                    )
+                }
+            } catch (t: Throwable) {
+                Utils.mainThread.post {
+                    storeMessages.deleteMessage(thinkingMsg)
+                    logger.error("Upload error", t)
+                    Utils.showToast("Error: ${t.message}", false)
+                }
             }
+        }
+    }
+
+    private fun createThinkingMessage(fileCount: Int): Message {
+        val clock = ClockFactory.get()
+        val channelId = StoreStream.getChannelsSelected().id
+        val clydeUser = Utils.buildClyde("BoxUpload", null)
+
+        val msg = LocalMessageCreatorsKt.createLocalMessage(
+            "Uploading $fileCount files...",
+            channelId,
+            clydeUser,
+            null,  // timestamp
+            false, // isPending
+            false, // isEditing
+            null,  // attachments
+            null,  // embeds
+            clock,
+            null,   // stickers
+            null,  // messageReference
+            null,  // interaction
+            null,  // flags
+            null,  // stickerItems
+            null,  // components
+            null,  // application
+            null   // referencedMessage
+        )
+
+        ReflectUtils.setField(Message::class.java, msg, "flags", MessageFlags.EPHEMERAL)
+        ReflectUtils.setField(Message::class.java, msg, "type", MessageTypes.LOCAL)
+
+        return msg
+    }
+
+    private fun updateLocalMessage(storeMessages: StoreMessages, messageId: Long, text: String) {
+        Utils.mainThread.post {
+            val clock = ClockFactory.get()
+            val channelId = StoreStream.getChannelsSelected().id
+            val clydeUser = Utils.buildClyde("BoxUpload", null)
+
+            val newMsg = LocalMessageCreatorsKt.createLocalMessage(
+                text,
+                channelId,
+                clydeUser,
+                null,
+                false,
+                false,
+                null,
+                null,
+                clock,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+            )
+
+            ReflectUtils.setField(Message::class.java, newMsg, "id", messageId)
+            ReflectUtils.setField(Message::class.java, newMsg, "flags", MessageFlags.EPHEMERAL)
+            ReflectUtils.setField(Message::class.java, newMsg, "type", MessageTypes.LOCAL)
+
+            StoreMessages.`access$handleLocalMessageCreate`(storeMessages, newMsg)
+        }
+    }
+
+    private fun recallSendMessage(
+        viewModel: Any,
+        context: Context,
+        messageManager: MessageManager,
+        content: MessageContent,
+        attachments: List<Attachment<*>>,
+        compressedImages: Boolean,
+        onValidation: Any
+    ) {
+        try {
+            val method = viewModel.javaClass.declaredMethods.firstOrNull {
+                it.name == "sendMessage" && it.parameterTypes.size == 6
+            }
+
+            if (method != null) {
+                method.isAccessible = true
+                method.invoke(
+                    viewModel,
+                    context,
+                    messageManager,
+                    content,
+                    attachments,
+                    compressedImages,
+                    onValidation
+                )
+            } else {
+                logger.error("Could not find sendMessage method signature", null)
+                Utils.showToast("Error: Method signature mismatch", false)
+            }
+        } catch (e: Exception) {
+            logger.error("Failed to recall sendMessage", e)
+            Utils.showToast("Error sending message", false)
         }
     }
 

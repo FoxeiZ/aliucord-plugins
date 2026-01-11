@@ -5,33 +5,18 @@ import com.uploader.FileHostingService
 import com.uploader.exceptions.NoSuchCatboxAlbumException
 import com.uploader.exceptions.NoSuchCatboxFileException
 import com.uploader.utils.toCatboxFiles
-
 import java.io.File
 
-
-internal sealed class RequestType(val reqType: String) {
-    object FileUpload : RequestType("fileupload")
-    object UrlUpload : RequestType("urlupload")
-    object DeleteFiles : RequestType("deletefiles")
-    object CreateAlbum : RequestType("createalbum")
-    object EditAlbum : RequestType("editalbum")
-    object AddToAlbum : RequestType("addtoalbum")
-    object RemoveFromAlbum : RequestType("removefromalbum")
-    object DeleteAlbum : RequestType("deletealbum")
-
-    companion object {
-        fun fromReqType(value: String): RequestType? = when (value) {
-            FileUpload.reqType -> FileUpload
-            UrlUpload.reqType -> UrlUpload
-            DeleteFiles.reqType -> DeleteFiles
-            CreateAlbum.reqType -> CreateAlbum
-            EditAlbum.reqType -> EditAlbum
-            AddToAlbum.reqType -> AddToAlbum
-            RemoveFromAlbum.reqType -> RemoveFromAlbum
-            DeleteAlbum.reqType -> DeleteAlbum
-            else -> null
-        }
-    }
+@Suppress("SpellCheckingInspection")
+internal enum class RequestType(val value: String) {
+    FileUpload("fileupload"),
+    UrlUpload("urlupload"),
+    DeleteFiles("deletefiles"),
+    CreateAlbum("createalbum"),
+    EditAlbum("editalbum"),
+    AddToAlbum("addtoalbum"),
+    RemoveFromAlbum("removefromalbum"),
+    DeleteAlbum("deletealbum")
 }
 
 class Catbox(private val userHash: String?) : FileHostingService() {
@@ -43,12 +28,13 @@ class Catbox(private val userHash: String?) : FileHostingService() {
         const val NO_SUCH_ALBUM_ERROR = "Album not found."
     }
 
+    @Suppress("SpellCheckingInspection")
     private fun makePostRequest(
         reqType: RequestType,
         parameters: Map<String, Any> = emptyMap()
     ): String {
         val allParams = mutableMapOf<String, Any>().apply {
-            put("reqtype", reqType)
+            put("reqtype", reqType.value)
             if (userHash != null) put("userhash", userHash)
             putAll(parameters)
         }
@@ -60,8 +46,8 @@ class Catbox(private val userHash: String?) : FileHostingService() {
         if (response.statusCode != 200) {
             throw Exception("Failed to make request: ${response.statusCode} ${response.statusMessage}")
         }
-        return response.text()
 
+        return response.text()
     }
 
     private fun isCatboxError(response: String, errorMessage: String): Boolean =
@@ -102,6 +88,7 @@ class Catbox(private val userHash: String?) : FileHostingService() {
         }
     }
 
+    @Suppress("unused")
     fun createAlbum(
         title: String,
         description: String,
@@ -118,6 +105,7 @@ class Catbox(private val userHash: String?) : FileHostingService() {
         return makePostRequest(RequestType.CreateAlbum, params)
     }
 
+    @Suppress("unused")
     fun editAlbum(
         short: String,
         title: String,
@@ -135,10 +123,12 @@ class Catbox(private val userHash: String?) : FileHostingService() {
         makeAlbumRequest(short, RequestType.EditAlbum, params)
     }
 
+    @Suppress("unused")
     fun addToAlbum(short: String, files: Set<String>) {
         makeAlbumRequest(short, RequestType.AddToAlbum, mapOf("files" to files.toCatboxFiles()))
     }
 
+    @Suppress("unused")
     fun removeFromAlbum(short: String, files: Set<String>) {
         makeAlbumRequest(
             short,
@@ -147,6 +137,7 @@ class Catbox(private val userHash: String?) : FileHostingService() {
         )
     }
 
+    @Suppress("unused")
     fun deleteAlbum(short: String) {
         makeAlbumRequest(short, RequestType.DeleteAlbum)
     }
