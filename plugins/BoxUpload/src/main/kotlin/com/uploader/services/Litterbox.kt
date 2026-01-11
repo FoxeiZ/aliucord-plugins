@@ -11,10 +11,12 @@ class Litterbox(private val duration: Int = 1) : FileHostingService() {
         const val API_URL = "https://litterbox.catbox.moe/resources/internals/api.php"
     }
 
+    @Suppress("SpellCheckingInspection")
     private fun makePostRequest(
         parameters: Map<String, Any> = emptyMap()
     ): String {
         val allParams = mutableMapOf<String, Any>().apply {
+            put("reqtype", "fileupload")
             putAll(parameters)
         }
 
