@@ -38,6 +38,12 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '21'
+          cache: 'gradle'
+          cache-dependency-path: |
+            src/*.gradle*
+            src/**/gradle-wrapper.properties
+            src/**/libs.versions.toml
+            src/plugins/**/build.gradle*
 
       # - name: Setup Gradle Cache
       #   uses: gradle/actions/setup-gradle@v4
