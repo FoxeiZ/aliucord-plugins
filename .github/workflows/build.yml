@@ -39,6 +39,11 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
+      # - name: Setup Gradle Cache
+      #   uses: gradle/actions/setup-gradle@v4
+      #   with:
+      #     build-root-directory: src
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -48,8 +53,9 @@ jobs:
           chmod +x gradlew
           ./gradlew make generateUpdaterJson
           # cp **/build/outputs/*.zip $GITHUB_WORKSPACE/builds
+          # cp build/updater.json $GITHUB_WORKSPACE/builds
           find . -path "*/build/outputs/*.zip" -exec cp {} $GITHUB_WORKSPACE/builds \;
-          cp build/updater.json $GITHUB_WORKSPACE/builds
+          find . -path "*/build/updater.json" -exec cp {} $GITHUB_WORKSPACE/builds \;
 
       - name: Push builds
         run: |
