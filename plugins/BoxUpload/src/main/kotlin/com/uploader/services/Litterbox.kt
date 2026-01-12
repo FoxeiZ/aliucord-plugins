@@ -32,7 +32,7 @@ class Litterbox(private val duration: Int = 1) : FileHostingService() {
 
     override fun getServiceName(): String = "Litterbox"
 
-    override fun getMaxFileSize(): Float = 1000F
+    override fun getMaxFileSize(): Long = 1000L
 
     override fun isSupportedFileExtension(extension: String): Boolean {
         val unsupportedExtensions = setOf(

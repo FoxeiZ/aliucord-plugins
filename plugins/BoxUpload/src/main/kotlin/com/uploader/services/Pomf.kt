@@ -71,7 +71,7 @@ class Pomf(
 
     override fun getServiceName(): String = "Pomf/Uguu"
 
-    override fun getMaxFileSize(): Float? = config.maxUploadSize?.toFloat()
+    override fun getMaxFileSize(): Long? = config.maxUploadSize?.toLong()
 
     override fun isSupportedFileExtension(extension: String): Boolean {
         val unsupportedExtensions = setOf(

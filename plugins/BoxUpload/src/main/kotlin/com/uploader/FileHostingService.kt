@@ -40,7 +40,7 @@ abstract class FileHostingService {
      * Gets the maximum file size allowed by this hosting service in bytes.
      * Returns null if there's no specific limit or the limit is unknown.
      */
-    abstract fun getMaxFileSize(): Float?
+    abstract fun getMaxFileSize(): Long?
 
     /**
      * Gets the name of this hosting service.

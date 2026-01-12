@@ -55,7 +55,7 @@ class Catbox(private val userHash: String?) : FileHostingService() {
 
     override fun getServiceName(): String = "Catbox"
 
-    override fun getMaxFileSize(): Float = 200F
+    override fun getMaxFileSize(): Long = 200L
 
     override fun isSupportedFileExtension(extension: String): Boolean {
         val unsupportedExtensions = setOf(

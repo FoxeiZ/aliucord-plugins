@@ -271,6 +271,12 @@ class BoxUpload : Plugin() {
         }
     }
 
+    private val sendMessageMethod by lazy {
+        ChatInputViewModel::class.java.declaredMethods.firstOrNull {
+            it.name == "sendMessage" && it.parameterTypes.size == 6
+        }?.apply { isAccessible = true }
+    }
+
     private fun recallSendMessage(
         viewModel: Any,
         context: Context,
@@ -281,25 +287,15 @@ class BoxUpload : Plugin() {
         onValidation: Any
     ) {
         try {
-            val method = viewModel.javaClass.declaredMethods.firstOrNull {
-                it.name == "sendMessage" && it.parameterTypes.size == 6
-            }
-
-            if (method != null) {
-                method.isAccessible = true
-                method.invoke(
-                    viewModel,
-                    context,
-                    messageManager,
-                    content,
-                    attachments,
-                    compressedImages,
-                    onValidation
-                )
-            } else {
-                logger.error("Could not find sendMessage method signature", null)
-                Utils.showToast("Error: Method signature mismatch", false)
-            }
+            sendMessageMethod?.invoke(
+                viewModel,
+                context,
+                messageManager,
+                content,
+                attachments,
+                compressedImages,
+                onValidation
+            )
         } catch (e: Exception) {
             logger.error("Failed to recall sendMessage", e)
             Utils.showToast("Error sending message", false)
