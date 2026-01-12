@@ -8,6 +8,7 @@ import com.aliucord.patcher.before
 import com.aliucord.utils.ReflectUtils
 import com.discord.api.message.MessageFlags
 import com.discord.api.message.MessageTypes
+import com.discord.api.sticker.BaseSticker
 import com.discord.models.message.Message
 import com.discord.stores.StoreMessages
 import com.discord.stores.StoreStream
@@ -15,7 +16,9 @@ import com.discord.utilities.message.LocalMessageCreatorsKt
 import com.discord.utilities.time.ClockFactory
 import com.discord.widgets.chat.MessageContent
 import com.discord.widgets.chat.MessageManager
+import com.discord.widgets.chat.MessageManager.AttachmentsRequest
 import com.discord.widgets.chat.input.ChatInputViewModel
+import com.github.foxeiz.AttachmentUtils.getFileSize
 import com.github.foxeiz.settings.CatboxSettings
 import com.github.foxeiz.settings.LitterboxSettings
 import com.github.foxeiz.settings.PomfSettings
@@ -123,7 +126,7 @@ class BoxUpload : Plugin() {
                 val originalContent = param.args[2] as MessageContent
                 val compressedImages = param.args[4] as Boolean
                 val onValidation = param.args[5]
-                val viewModel = param.thisObject
+                val viewModel = param.thisObject as ChatInputViewModel
 
                 handleLargeFileUpload(
                     context,
@@ -144,7 +147,7 @@ class BoxUpload : Plugin() {
 
     private fun handleLargeFileUpload(
         context: Context,
-        viewModel: Any,
+        viewModel: ChatInputViewModel,
         messageManager: MessageManager,
         originalContent: MessageContent,
         allAttachments: MutableList<Attachment<*>>,
@@ -154,8 +157,17 @@ class BoxUpload : Plugin() {
     ) {
         val storeMessages = StoreStream.getMessages()
         val thinkingMsg = createThinkingMessage(largeFiles.size)
+        val originalChannelId = thinkingMsg.channelId
 
         StoreMessages.`access$handleLocalMessageCreate`(storeMessages, thinkingMsg)
+
+        // this is annoying, since the onValidation param is a class,
+        // but the onValidation that ChatInputViewModel.sendMessage expects is a function type
+        // and we cant cast to method type directly
+        // we have to use reflection to call the invoke method
+        // why??????????????
+        onValidation.javaClass.declaredMethods.firstOrNull { it.name == "invoke" }
+            ?.invoke(onValidation, true)
 
         Utils.threadPool.execute {
             try {
@@ -164,7 +176,12 @@ class BoxUpload : Plugin() {
                     check = { _, att -> uploadProcessor.isSupportedFile(att) },
                     onProgress = { filename, current, total ->
                         val progressText = "Uploading `$filename`... ($current/$total)"
-                        updateLocalMessage(storeMessages, thinkingMsg.id, progressText)
+                        updateLocalMessage(
+                            storeMessages,
+                            thinkingMsg.id,
+                            originalChannelId,
+                            progressText
+                        )
                     }
                 )
 
@@ -186,15 +203,28 @@ class BoxUpload : Plugin() {
                     val newContent = originalContent.copy(newText, originalContent.mentionedUsers)
                     allAttachments.removeAll(largeFiles)
 
-                    recallSendMessage(
-                        viewModel,
-                        context,
-                        messageManager,
-                        newContent,
-                        allAttachments,
-                        compressedImages,
-                        onValidation
-                    )
+                    val currentChannelId = StoreStream.getChannelsSelected().id
+                    // if (false) {
+                    if (currentChannelId == originalChannelId) {
+                        recallSendMessage(
+                            viewModel,
+                            context,
+                            messageManager,
+                            newContent,
+                            allAttachments,
+                            compressedImages,
+                            { b: Boolean -> } // onValidation
+                        )
+                    } else {
+                        sendBackgroundMessage(
+                            context,
+                            viewModel,
+                            messageManager,
+                            originalChannelId,
+                            newContent,
+                            allAttachments
+                        )
+                    }
                 }
             } catch (t: Throwable) {
                 Utils.mainThread.post {
@@ -233,14 +263,18 @@ class BoxUpload : Plugin() {
 
         ReflectUtils.setField(Message::class.java, msg, "flags", MessageFlags.EPHEMERAL)
         ReflectUtils.setField(Message::class.java, msg, "type", MessageTypes.LOCAL)
-
         return msg
     }
 
-    private fun updateLocalMessage(storeMessages: StoreMessages, messageId: Long, text: String) {
+    private fun updateLocalMessage(
+        storeMessages: StoreMessages,
+        messageId: Long,
+        channelId: Long,
+        text: String
+    ) {
         Utils.mainThread.post {
             val clock = ClockFactory.get()
-            val channelId = StoreStream.getChannelsSelected().id
+            // val channelId = StoreStream.getChannelsSelected().id
             val clydeUser = Utils.buildClyde("BoxUpload", null)
 
             val newMsg = LocalMessageCreatorsKt.createLocalMessage(
@@ -271,12 +305,6 @@ class BoxUpload : Plugin() {
         }
     }
 
-    private val sendMessageMethod by lazy {
-        ChatInputViewModel::class.java.declaredMethods.firstOrNull {
-            it.name == "sendMessage" && it.parameterTypes.size == 6
-        }?.apply { isAccessible = true }
-    }
-
     private fun recallSendMessage(
         viewModel: Any,
         context: Context,
@@ -300,6 +328,47 @@ class BoxUpload : Plugin() {
             logger.error("Failed to recall sendMessage", e)
             Utils.showToast("Error sending message", false)
         }
+    }
+
+    private fun sendBackgroundMessage(
+        context: Context,
+        viewModel: ChatInputViewModel,
+        messageManager: MessageManager,
+        channelId: Long,
+        content: MessageContent,
+        attachments: List<Attachment<*>>
+    ) {
+        try {
+            val viewStateLoaded =
+                viewModel.viewState as? ChatInputViewModel.ViewState.Loaded ?: return
+            val currentSize = attachments.sumOf { it.getFileSize(context) }
+            val attachmentsRequest = AttachmentsRequest(
+                currentSize.toFloat(),
+                viewStateLoaded.maxFileSizeMB,
+                attachments
+            )
+            messageManager.sendMessage(
+                content.textContent,  // text
+                content.mentionedUsers,
+                attachmentsRequest,
+                channelId,
+                emptyList<BaseSticker>(),
+                false,
+                { val1, val2 -> },  // onMessageTooLong
+                { val1, val2 -> },  // onFilesTooLarge
+                { val1 -> },  // messageSendResultHandler
+            )
+            Utils.showToast("Message sent to previous channel", false)
+        } catch (e: Throwable) {
+            logger.error("Failed to send background message", e)
+            Utils.showToast("Background send failed", true)
+        }
+    }
+
+    private val sendMessageMethod by lazy {
+        ChatInputViewModel::class.java.declaredMethods.firstOrNull {
+            it.name == "sendMessage" && it.parameterTypes.size == 6
+        }?.apply { isAccessible = true }
     }
 
     override fun stop(context: Context) {
