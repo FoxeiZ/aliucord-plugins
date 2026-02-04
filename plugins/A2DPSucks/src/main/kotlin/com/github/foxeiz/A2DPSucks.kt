@@ -37,9 +37,87 @@ class A2DPSucks : Plugin() {
         }
     }
 
-    override fun start(context: Context) {
-        logger.info("Starting A2DPSucks plugin")
+    private fun requestAudioFocus(manager: DiscordAudioManager, audioManager: AudioManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val mediaAttrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val focusListener = manager.p
+            if (focusListener != null) {
+                val handler = Handler(Looper.getMainLooper())
+                val focusReq = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(mediaAttrs)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener(focusListener, handler)
+                    .build()
+                manager.q = focusReq
+                audioManager.requestAudioFocus(focusReq)
+            }
+        } else {
+            audioManager.requestAudioFocus(
+                null,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            )
+        }
+    }
 
+    private fun abandonAudioFocus(manager: DiscordAudioManager, audioManager: AudioManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val savedReq = manager.q
+            if (savedReq != null) audioManager.abandonAudioFocusRequest(savedReq)
+        } else {
+            val listener = manager.p
+            if (listener != null) audioManager.abandonAudioFocus(listener)
+        }
+    }
+
+    private fun captureAudioState(manager: DiscordAudioManager, audioManager: AudioManager) {
+        manager.A = audioManager.isSpeakerphoneOn
+        manager.B = audioManager.isMicrophoneMute
+        manager.C = audioManager.isBluetoothScoOn
+    }
+
+    private fun restoreAudioState(manager: DiscordAudioManager, audioManager: AudioManager) {
+        if (audioManager.isMicrophoneMute != manager.B) audioManager.isMicrophoneMute = manager.B
+        if (audioManager.isSpeakerphoneOn != manager.A) audioManager.isSpeakerphoneOn = manager.A
+        if (manager.C) manager.j()
+    }
+
+    private fun applyDeviceSwitch(
+        manager: DiscordAudioManager,
+        audioManager: AudioManager,
+        targetDevice: DiscordAudioManager.DeviceTypes
+    ) {
+        if (targetDevice == DiscordAudioManager.DeviceTypes.BLUETOOTH_HEADSET) {
+            manager.i(false)
+            killSco(audioManager)
+            if (audioManager.isSpeakerphoneOn) audioManager.isSpeakerphoneOn = false
+        } else if (targetDevice == DiscordAudioManager.DeviceTypes.SPEAKERPHONE) {
+            killSco(audioManager)
+            manager.k()
+            manager.i(false)
+            if (!audioManager.isSpeakerphoneOn) audioManager.isSpeakerphoneOn = true
+        } else {
+            manager.i(true)
+            killSco(audioManager)
+            manager.k()
+            if (audioManager.isSpeakerphoneOn) audioManager.isSpeakerphoneOn = false
+        }
+
+        synchronized(manager.i) {
+            manager.t = targetDevice
+            manager.u.k.onNext(targetDevice)
+        }
+
+        try {
+            Utils.appActivity.volumeControlStream = AudioManager.STREAM_MUSIC
+        } catch (e: Throwable) {
+        }
+    }
+
+    override fun start(context: Context) {
         try {
             patcher.before<AudioTrack>(
                 AudioAttributes::class.java,
@@ -77,36 +155,9 @@ class A2DPSucks : Plugin() {
                 }
 
                 if (turningOn) {
-                    val handler = Handler(Looper.getMainLooper())
-
-                    manager.A = audioManager.isSpeakerphoneOn
-                    manager.B = audioManager.isMicrophoneMute
-                    manager.C = audioManager.isBluetoothScoOn
-
+                    captureAudioState(manager, audioManager)
                     manager.i(false)
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        val mediaAttrs = AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build()
-                        val focusListener = manager.p
-                        if (focusListener != null) {
-                            val focusReq = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                                .setAudioAttributes(mediaAttrs)
-                                .setAcceptsDelayedFocusGain(true)
-                                .setOnAudioFocusChangeListener(focusListener, handler)
-                                .build()
-                            manager.q = focusReq
-                            audioManager.requestAudioFocus(focusReq)
-                        }
-                    } else {
-                        audioManager.requestAudioFocus(
-                            null,
-                            AudioManager.STREAM_MUSIC,
-                            AudioManager.AUDIOFOCUS_GAIN
-                        )
-                    }
+                    requestAudioFocus(manager, audioManager)
                     manager.l()
                 } else {
                     manager.v = null
@@ -115,20 +166,8 @@ class A2DPSucks : Plugin() {
                         manager.z = DiscordAudioManager.DeviceTypes.DEFAULT
                     }
                     manager.i(false)
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        val savedReq = manager.q
-                        if (savedReq != null) audioManager.abandonAudioFocusRequest(savedReq)
-                    } else {
-                        val listener = manager.p
-                        if (listener != null) audioManager.abandonAudioFocus(listener)
-                    }
-
-                    if (audioManager.isMicrophoneMute != manager.B) audioManager.isMicrophoneMute =
-                        manager.B
-                    if (audioManager.isSpeakerphoneOn != manager.A) audioManager.isSpeakerphoneOn =
-                        manager.A
-                    if (manager.C) manager.j()
+                    abandonAudioFocus(manager, audioManager)
+                    restoreAudioState(manager, audioManager)
                 }
                 return@instead null
             }
@@ -141,34 +180,7 @@ class A2DPSucks : Plugin() {
                 val targetDevice = it.args[0] as DiscordAudioManager.DeviceTypes
                 val audioManager = manager.e
 
-                if (targetDevice == DiscordAudioManager.DeviceTypes.BLUETOOTH_HEADSET) {
-                    manager.i(false)
-                    killSco(audioManager)
-                    if (audioManager.isSpeakerphoneOn) audioManager.isSpeakerphoneOn = false
-
-                } else if (targetDevice == DiscordAudioManager.DeviceTypes.SPEAKERPHONE) {
-                    killSco(audioManager)
-                    manager.k()
-                    manager.i(false)
-
-                    if (!audioManager.isSpeakerphoneOn) audioManager.isSpeakerphoneOn = true
-
-                } else {
-                    manager.i(true)
-                    killSco(audioManager)
-                    manager.k()
-                    if (audioManager.isSpeakerphoneOn) audioManager.isSpeakerphoneOn = false
-                }
-
-                synchronized(manager.i) {
-                    manager.t = targetDevice
-                    manager.u.k.onNext(targetDevice)
-                }
-
-                try {
-                    Utils.appActivity.volumeControlStream = AudioManager.STREAM_MUSIC
-                } catch (e: Throwable) {
-                }
+                applyDeviceSwitch(manager, audioManager, targetDevice)
 
                 it.result = null
             }
