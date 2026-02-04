@@ -1,15 +1,15 @@
-version = "0.01"
+version = "1.0.0"
 description =
-    "Make every text selectable!"
+    "Your bluetooth A2DP experience sucks? This plugin might help."
 
 aliucord {
     changelog.set(
         """
-        feat: init
+        init plugin
         """.trimIndent()
     )
 
-    deploy.set(false)
+    deploy.set(true)
 }
 
 // android {
