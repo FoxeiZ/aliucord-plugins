@@ -19,7 +19,6 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
-import androidx.annotation.RequiresApi
 import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
@@ -30,7 +29,6 @@ import kotlin.math.abs
 
 @Suppress("DEPRECATION", "unused")
 @SuppressLint("UseKtx", "ClickableViewAccessibility", "SetTextI18n")
-@RequiresApi(Build.VERSION_CODES.M)
 @AliucordPlugin
 class SelfPip : Plugin() {
     private var targetRenderer: AppVideoStreamRenderer? = null
@@ -104,7 +102,6 @@ class SelfPip : Plugin() {
     }
 
     override fun start(context: Context) {
-        logger.info("starting self pip plugin")
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         patcher.after<SurfaceViewRenderer>(
@@ -142,7 +139,7 @@ class SelfPip : Plugin() {
 
         patcher.after<Activity>("onPause") {
             if (isPiPActive || targetRenderer == null) return@after
-            if (!Settings.canDrawOverlays(context)) {
+            if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(context)) {
                 logger.warn("overlay permission missing")
                 Utils.showToast("Grant Overlay Permission for PiP", true)
             } else {
