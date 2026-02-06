@@ -42,6 +42,7 @@ class SelfPip : Plugin() {
     private var isPiPActive = false
     private var scaleGestureDetector: ScaleGestureDetector? = null
 
+    private var hideControlsRunnable: Runnable? = null
 
     private fun detachRenderer(renderer: AppVideoStreamRenderer): Boolean {
         return try {
@@ -235,7 +236,11 @@ class SelfPip : Plugin() {
                         MotionEvent.ACTION_UP -> {
                             if (!isMove && !isScaling) {
                                 logger.info("tap toggled controls")
-                                toggleControls(controlsLayout)
+                                if (controlsLayout.visibility == View.VISIBLE) {
+                                    hideControls(controlsLayout)
+                                } else {
+                                    showControls(controlsLayout)
+                                }
                             }
                             return true
                         }
@@ -307,12 +312,17 @@ class SelfPip : Plugin() {
         }
     }
 
-    private fun toggleControls(controls: View) {
-        if (controls.visibility == View.VISIBLE) {
-            controls.visibility = View.GONE
-        } else {
-            controls.visibility = View.VISIBLE
-        }
+    private fun showControls(controls: View) {
+        controls.visibility = View.VISIBLE
+        hideControlsRunnable?.let { controls.removeCallbacks(it) }
+        hideControlsRunnable = Runnable { hideControls(controls) }
+        controls.postDelayed(hideControlsRunnable, 5000)
+    }
+
+    private fun hideControls(controls: View) {
+        controls.visibility = View.GONE
+        hideControlsRunnable?.let { controls.removeCallbacks(it) }
+        hideControlsRunnable = null
     }
 
     private fun restoreToApp(context: Context) {
@@ -333,6 +343,9 @@ class SelfPip : Plugin() {
         logger.info("stopping floating window")
         val container = floatContainer
         val renderer = targetRenderer
+
+        hideControlsRunnable?.let { container?.removeCallbacks(it) }
+        hideControlsRunnable = null
 
         try {
             if (container != null) {
