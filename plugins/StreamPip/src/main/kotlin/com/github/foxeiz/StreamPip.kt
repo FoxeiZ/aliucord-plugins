@@ -41,7 +41,6 @@ class SelfPip : Plugin() {
     private var windowParams: WindowManager.LayoutParams? = null
     private var isPiPActive = false
     private var scaleGestureDetector: ScaleGestureDetector? = null
-
     private var hideControlsRunnable: Runnable? = null
 
     private fun detachRenderer(renderer: AppVideoStreamRenderer): Boolean {
@@ -84,6 +83,26 @@ class SelfPip : Plugin() {
         }
     }
 
+    private fun handleResolutionChange(width: Int, height: Int) {
+        if (!isPiPActive || windowParams == null || width <= 0 || height <= 0) return
+
+        Utils.mainThread.post {
+            try {
+                val params = windowParams ?: return@post
+                val currentWidth = params.width
+                val newHeight = (currentWidth * height) / width
+
+                if (params.height != newHeight) {
+                    logger.debug("resizing pip to match aspect ratio: ${width}x${height}")
+                    params.height = newHeight
+                    updateFloatingLayout(params)
+                }
+            } catch (e: Throwable) {
+                logger.error("resolution update failed", e)
+            }
+        }
+    }
+
     override fun start(context: Context) {
         logger.info("starting self pip plugin")
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -108,6 +127,19 @@ class SelfPip : Plugin() {
             }
         }
 
+        patcher.after<SurfaceViewRenderer>(
+            "onFrameResolutionChanged",
+            Int::class.javaPrimitiveType!!,
+            Int::class.javaPrimitiveType!!,
+            Int::class.javaPrimitiveType!!
+        ) {
+            if (isPiPActive && it.thisObject == targetRenderer) {
+                val width = it.args[0] as Int
+                val height = it.args[1] as Int
+                handleResolutionChange(width, height)
+            }
+        }
+
         patcher.after<Activity>("onPause") {
             if (isPiPActive || targetRenderer == null) return@after
             if (!Settings.canDrawOverlays(context)) {
@@ -115,6 +147,13 @@ class SelfPip : Plugin() {
                 Utils.showToast("Grant Overlay Permission for PiP", true)
             } else {
                 startFloatingWindow(context)
+            }
+        }
+
+        patcher.after<Activity>("onResume") {
+            if (isPiPActive) {
+                logger.debug("app resumed, closing pip")
+                stopFloatingWindow()
             }
         }
     }
@@ -316,7 +355,7 @@ class SelfPip : Plugin() {
         controls.visibility = View.VISIBLE
         hideControlsRunnable?.let { controls.removeCallbacks(it) }
         hideControlsRunnable = Runnable { hideControls(controls) }
-        controls.postDelayed(hideControlsRunnable, 5000)
+        controls.postDelayed(hideControlsRunnable, 3000)
     }
 
     private fun hideControls(controls: View) {
