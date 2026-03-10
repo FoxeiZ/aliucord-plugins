@@ -12,15 +12,11 @@ class SelectableText : Plugin() {
         settingsTab = SettingsTab(PluginSettings::class.java).withArgs(settings)
     }
 
-    override fun start(ctx: Context) {
-        requiresRestart()
-        if (settings.getBool(SettingKeyInfo.EMBED_DESCRIPTION.key, false)) {
-            createSelectableEmbedDescription(patcher)
-        }
+    override fun start(context: Context) {
+        createSelectableEmbedDescription(patcher, settings)
     }
 
-    override fun stop(ctx: Context) {
+    override fun stop(context: Context) {
         patcher.unpatchAll()
     }
-
 }
