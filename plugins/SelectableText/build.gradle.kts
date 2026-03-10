@@ -1,4 +1,4 @@
-version = "0.01"
+version = "0.1.2"
 description =
     "Make every text selectable!"
 
@@ -9,7 +9,7 @@ aliucord {
         """.trimIndent()
     )
 
-    deploy.set(false)
+    deploy.set(true)
 }
 
 // android {
