@@ -97,6 +97,12 @@ enum class SettingKeyInfo(
         "User Bio",
         "",
         Utils.getResId("about_me_text", "id")
+    ),
+    CHANNEL_TOPIC(
+        "channel_topic",
+        "Channel Topic",
+        "",
+        Utils.getResId("channel_topic_title", "id")
     )
 }
 
@@ -124,6 +130,11 @@ enum class SettingGroup(val title: String, val settings: List<SettingKeyInfo>) {
             SettingKeyInfo.USER_NAME,
             SettingKeyInfo.USER_CUSTOM_STATUS,
             SettingKeyInfo.USER_BIO
+        )
+    ),
+    CHANNEL(
+        "Channel Settings", listOf(
+            SettingKeyInfo.CHANNEL_TOPIC
         )
     )
 }

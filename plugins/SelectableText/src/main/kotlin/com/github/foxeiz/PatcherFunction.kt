@@ -12,6 +12,7 @@ import com.aliucord.api.SettingsAPI
 import com.aliucord.patcher.after
 import com.discord.models.user.User
 import com.discord.utilities.streams.StreamContext
+import com.discord.widgets.channels.WidgetChannelTopic
 import com.discord.widgets.chat.list.adapter.WidgetChatListAdapterItemEmbed
 import com.discord.widgets.chat.list.entries.ChatListEntry
 import com.discord.widgets.user.presence.ModelRichPresence
@@ -104,6 +105,22 @@ fun userProfile(patcher: PatcherAPI, settings: SettingsAPI) {
 
             } catch (e: Throwable) {
                 logger.error("Error making user bio selectable", e)
+            }
+        }
+    }
+}
+
+fun serverChannel(patcher: PatcherAPI, settings: SettingsAPI) {
+    if (settings.getBool(SettingKeyInfo.CHANNEL_TOPIC.key, false)) {
+        patcher.after<WidgetChannelTopic>(
+            "configureChannelTopicTitle", WidgetChannelTopic.RenderedTopic::class.java
+        ) { param ->
+            try {
+                val widget = param.thisObject as WidgetChannelTopic
+                applySelection(widget.mView, SettingKeyInfo.CHANNEL_TOPIC.resId ?: return@after)
+
+            } catch (e: Throwable) {
+                logger.error("Error making channel topic selectable", e)
             }
         }
     }

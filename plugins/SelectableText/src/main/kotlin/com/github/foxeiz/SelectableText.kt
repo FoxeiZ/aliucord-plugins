@@ -16,6 +16,7 @@ class SelectableText : Plugin() {
         embedDescription(patcher, settings)
         richPresence(patcher, settings)
         userProfile(patcher, settings)
+        serverChannel(patcher, settings)
     }
 
     override fun stop(context: Context) {

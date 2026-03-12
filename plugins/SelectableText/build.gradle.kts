@@ -1,11 +1,11 @@
-version = "0.1.5"
+version = "0.2.0"
 description =
     "Make every text selectable!"
 
 aliucord {
     changelog.set(
         """
-        feat: init
+        feat(SelectableText): add selectable text for channel
         """.trimIndent()
     )
 
