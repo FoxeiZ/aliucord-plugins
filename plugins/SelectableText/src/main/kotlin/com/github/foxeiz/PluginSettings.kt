@@ -19,32 +19,101 @@ enum class SettingKeyInfo(
     EMBED_TITLE(
         "embed_title",
         "Embed Title",
-        "Enable selectable text in embed titles",
+        "",
         "chat_list_item_embed_title"
     ),
     EMBED_AUTHOR(
         "embed_author",
         "Embed Author",
-        "Enable selectable text for embed authors",
+        "",
         "chat_list_item_embed_author_text"
     ),
     EMBED_DESCRIPTION(
         "embed_description",
         "Embed Description",
-        "Enable selectable text in embed descriptions",
+        "",
         "chat_list_item_embed_description"
     ),
     EMBED_FOOTER(
         "embed_footer",
         "Embed Footer",
-        "Enable selectable text in embed footers",
+        "",
         "chat_list_item_embed_footer_text"
     ),
     EMBED_FIELDS(
         "embed_fields",
         "Embed Fields",
-        "Enable selectable text in embed field names and values",
+        "Includes both field name and value, since they use the same layout.",
         ""
+    ),
+    RICH_PRESENCE_STATE(
+        "rich_presence_state",
+        "Rich Presence State",
+        "",
+        "rich_presence_state"
+    ),
+    RICH_PRESENCE_TITLE(
+        "rich_presence_title",
+        "Rich Presence Title",
+        "",
+        "rich_presence_title"
+    ),
+    RICH_PRESENCE_DETAILS(
+        "rich_presence_details",
+        "Rich Presence Details",
+        "",
+        "rich_presence_details"
+    ),
+    RICH_PRESENCE_TIME(
+        "rich_presence_time",
+        "Rich Presence Time",
+        "Very unstable, since time is updated every second, causing the selection to reset.",
+        "rich_presence_time"
+    ),
+    USER_NAME(
+        "user_name",
+        "User Name",
+        "",
+        "user_name"
+    ),
+    USER_STATUS(
+        "user_status",
+        "User Status",
+        "",
+        "user_status"
+    ),
+    USER_BIO(
+        "user_bio",
+        "User Bio",
+        "",
+        "user_bio"
+    )
+}
+
+enum class SettingGroup(val title: String, val settings: List<SettingKeyInfo>) {
+    EMBEDS(
+        "Embed Settings", listOf(
+            SettingKeyInfo.EMBED_TITLE,
+            SettingKeyInfo.EMBED_AUTHOR,
+            SettingKeyInfo.EMBED_DESCRIPTION,
+            SettingKeyInfo.EMBED_FOOTER,
+            SettingKeyInfo.EMBED_FIELDS
+        )
+    ),
+    RICH_PRESENCE(
+        "Rich Presence Settings", listOf(
+            SettingKeyInfo.RICH_PRESENCE_STATE,
+            SettingKeyInfo.RICH_PRESENCE_TITLE,
+            SettingKeyInfo.RICH_PRESENCE_DETAILS,
+            SettingKeyInfo.RICH_PRESENCE_TIME
+        )
+    ),
+    USER(
+        "User Settings", listOf(
+            SettingKeyInfo.USER_NAME,
+            SettingKeyInfo.USER_STATUS,
+            SettingKeyInfo.USER_BIO
+        )
     )
 }
 
@@ -54,22 +123,29 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
         super.onViewBound(view)
 
         setActionBarTitle("Selectable Text")
-        createHeader(context!!, "Embed Settings")
-        SettingKeyInfo.entries.forEach { info ->
-            createPatcherEntry(context!!, info)
+        SettingGroup.entries.forEach { group ->
+            if (group.settings.isNotEmpty()) {
+                createHeader(context!!, group.title)
+                group.settings.forEach { info ->
+                    createPatcherEntry(context!!, info)
+                }
+            }
         }
     }
 
     fun createPatcherEntry(
         ctx: Context,
-        settingKey: SettingKeyInfo
+        settingKey: SettingKeyInfo,
+        rootLayout: ViewGroup? = null
     ) {
         createToggleButton(
             ctx,
             settingKey.key,
             settingKey.title,
             settingKey.description
-        ).let { addView(it) }
+        ).let {
+            (rootLayout ?: this.linearLayout).addView(it)
+        }
     }
 
     fun createHeader(ctx: Context, title: String): TextView {
@@ -84,7 +160,6 @@ class PluginSettings(private val settings: SettingsAPI) : SettingsPage() {
         key: String,
         title: String = "",
         description: String = "",
-        rootLayout: ViewGroup? = null
     ): CheckedSetting {
         return Utils.createCheckedSetting(
             ctx, CheckedSetting.ViewType.SWITCH,
