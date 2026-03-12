@@ -14,79 +14,89 @@ enum class SettingKeyInfo(
     val key: String,
     val title: String,
     val description: String,
-    val resName: String
+    val resId: Int? = null,
+    val resIds: List<Int>? = null,
 ) {
     EMBED_TITLE(
         "embed_title",
         "Embed Title",
         "",
-        "chat_list_item_embed_title"
+        Utils.getResId("chat_list_item_embed_title", "id")
     ),
     EMBED_AUTHOR(
         "embed_author",
         "Embed Author",
         "",
-        "chat_list_item_embed_author_text"
+        Utils.getResId("chat_list_item_embed_author_text", "id")
     ),
     EMBED_DESCRIPTION(
         "embed_description",
         "Embed Description",
         "",
-        "chat_list_item_embed_description"
+        Utils.getResId("chat_list_item_embed_description", "id")
     ),
     EMBED_FOOTER(
         "embed_footer",
         "Embed Footer",
         "",
-        "chat_list_item_embed_footer_text"
+        Utils.getResId("chat_list_item_embed_footer_text", "id")
     ),
     EMBED_FIELDS(
         "embed_fields",
         "Embed Fields",
         "Includes both field name and value, since they use the same layout.",
-        ""
+        resIds = listOf(
+            Utils.getResId("chat_list_item_embed_field_name", "id"),
+            Utils.getResId("chat_list_item_embed_field_value", "id")
+        )
     ),
     RICH_PRESENCE_STATE(
         "rich_presence_state",
         "Rich Presence State",
         "",
-        "rich_presence_state"
+        Utils.getResId("rich_presence_state", "id")
     ),
     RICH_PRESENCE_TITLE(
         "rich_presence_title",
         "Rich Presence Title",
         "",
-        "rich_presence_title"
+        Utils.getResId("rich_presence_title", "id")
     ),
     RICH_PRESENCE_DETAILS(
         "rich_presence_details",
         "Rich Presence Details",
         "",
-        "rich_presence_details"
+        Utils.getResId("rich_presence_details", "id")
     ),
     RICH_PRESENCE_TIME(
         "rich_presence_time",
         "Rich Presence Time",
         "Very unstable, since time is updated every second, causing the selection to reset.",
-        "rich_presence_time"
+        Utils.getResId("rich_presence_time", "id")
+    ),
+    USER_NICK_NAME(
+        "user_nick_name",
+        "User Nickname",
+        "",
+        Utils.getResId("username_text", "id")
     ),
     USER_NAME(
         "user_name",
         "User Name",
-        "",
-        "user_name"
+        "The actual username, not the nickname.",
+        Utils.getResId("user_profile_header_secondary_name", "id")
     ),
-    USER_STATUS(
-        "user_status",
-        "User Status",
+    USER_CUSTOM_STATUS(
+        "user_custom_status",
+        "User Custom Status",
         "",
-        "user_status"
+        Utils.getResId("user_profile_header_custom_status", "id")
     ),
     USER_BIO(
         "user_bio",
         "User Bio",
         "",
-        "user_bio"
+        Utils.getResId("about_me_text", "id")
     )
 }
 
@@ -110,8 +120,9 @@ enum class SettingGroup(val title: String, val settings: List<SettingKeyInfo>) {
     ),
     USER(
         "User Settings", listOf(
+            SettingKeyInfo.USER_NICK_NAME,
             SettingKeyInfo.USER_NAME,
-            SettingKeyInfo.USER_STATUS,
+            SettingKeyInfo.USER_CUSTOM_STATUS,
             SettingKeyInfo.USER_BIO
         )
     )

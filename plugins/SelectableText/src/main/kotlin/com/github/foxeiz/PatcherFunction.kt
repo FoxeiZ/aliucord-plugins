@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.FragmentManager
 import com.aliucord.Logger
-import com.aliucord.Utils
 import com.aliucord.api.PatcherAPI
 import com.aliucord.api.SettingsAPI
 import com.aliucord.patcher.after
@@ -17,14 +16,16 @@ import com.discord.widgets.chat.list.adapter.WidgetChatListAdapterItemEmbed
 import com.discord.widgets.chat.list.entries.ChatListEntry
 import com.discord.widgets.user.presence.ModelRichPresence
 import com.discord.widgets.user.presence.ViewHolderUserRichPresence
+import com.discord.widgets.user.profile.UserProfileHeaderView
+import com.discord.widgets.user.profile.UserProfileHeaderViewModel
+import com.discord.widgets.user.usersheet.WidgetUserSheet
+import com.discord.widgets.user.usersheet.WidgetUserSheetViewModel
 
 private val logger by lazy { Logger("SelectableText") }
 
-fun createSelectableEmbedDescription(patcher: PatcherAPI, settings: SettingsAPI) {
+fun embedDescription(patcher: PatcherAPI, settings: SettingsAPI) {
     patcher.after<WidgetChatListAdapterItemEmbed>(
-        "onConfigure",
-        Int::class.javaPrimitiveType!!,
-        ChatListEntry::class.java
+        "onConfigure", Int::class.javaPrimitiveType!!, ChatListEntry::class.java
     ) { param ->
         try {
             val adapterItem = param.thisObject as WidgetChatListAdapterItemEmbed
@@ -32,11 +33,12 @@ fun createSelectableEmbedDescription(patcher: PatcherAPI, settings: SettingsAPI)
 
             SettingGroup.EMBEDS.settings.forEach { info ->
                 if (settings.getBool(info.key, false)) {
-                    if (info == SettingKeyInfo.EMBED_FIELDS) {
-                        applySelection(itemView, "chat_list_item_embed_field_name")
-                        applySelection(itemView, "chat_list_item_embed_field_value")
+                    if (info.resId == null && info.resIds != null) {
+                        info.resIds.forEach { resId ->
+                            applySelection(itemView, resId, recursive = true)
+                        }
                     } else {
-                        applySelection(itemView, info.resName)
+                        applySelection(itemView, info.resId ?: return@forEach, recursive = true)
                     }
                 }
             }
@@ -47,7 +49,7 @@ fun createSelectableEmbedDescription(patcher: PatcherAPI, settings: SettingsAPI)
     }
 }
 
-fun createSelectableRichPresence(patcher: PatcherAPI, settings: SettingsAPI) {
+fun richPresence(patcher: PatcherAPI, settings: SettingsAPI) {
     patcher.after<ViewHolderUserRichPresence>(
         "configureUi",
         FragmentManager::class.java,
@@ -60,11 +62,9 @@ fun createSelectableRichPresence(patcher: PatcherAPI, settings: SettingsAPI) {
     ) { param ->
         try {
             val viewHolder = param.thisObject as ViewHolderUserRichPresence
-            logger.error(viewHolder.root.toString(), null)
-
             SettingGroup.RICH_PRESENCE.settings.forEach { info ->
                 if (settings.getBool(info.key, false)) {
-                    applySelection(viewHolder.root, info.resName)
+                    applySelection(viewHolder.root, info.resId ?: return@forEach)
                 }
             }
 
@@ -74,17 +74,70 @@ fun createSelectableRichPresence(patcher: PatcherAPI, settings: SettingsAPI) {
     }
 }
 
-private fun applySelection(view: View, resName: String) {
-    val resId = Utils.getResId(resName, "id")
-    if (resId != 0) {
-        findAllViewsById(view, resId).forEach { view ->
-            if (view is TextView) {
-                view.setTextIsSelectable(true)
-                view.movementMethod = LinkMovementMethod.getInstance()
-                view.setOnLongClickListener(null)  // remove default action, maybe this will be a setting later?
+fun userProfile(patcher: PatcherAPI, settings: SettingsAPI) {
+    fun applyForHeader(info: SettingKeyInfo, methodName: String) {
+        if (settings.getBool(info.key, false)) {
+            patcher.after<UserProfileHeaderView>(
+                methodName, UserProfileHeaderViewModel.ViewState.Loaded::class.java
+            ) { param ->
+                try {
+                    val view = param.thisObject as UserProfileHeaderView
+                    applySelection(view, info.resId ?: return@after)
+
+                } catch (e: Throwable) {
+                    logger.error("Error making user profile selectable", e)
+                }
             }
         }
     }
+    applyForHeader(SettingKeyInfo.USER_NAME, "configureSecondaryName")
+    applyForHeader(SettingKeyInfo.USER_NICK_NAME, "configurePrimaryName")
+    applyForHeader(SettingKeyInfo.USER_CUSTOM_STATUS, "updateViewState")
+
+    if (settings.getBool(SettingKeyInfo.USER_BIO.key, false)) {
+        patcher.after<WidgetUserSheet>(
+            "configureAboutMe", WidgetUserSheetViewModel.ViewState.Loaded::class.java
+        ) { param ->
+            try {
+                val widget = param.thisObject as WidgetUserSheet
+                applySelection(widget.mView, SettingKeyInfo.USER_BIO.resId ?: return@after)
+
+            } catch (e: Throwable) {
+                logger.error("Error making user bio selectable", e)
+            }
+        }
+    }
+}
+
+private fun applySelection(view: View, resId: Int, recursive: Boolean = false) {
+    if (resId == 0) {
+        logger.warn("Resource ID is 0, skipping. view: ${view.javaClass.simpleName}, root: ${view.rootView.javaClass.simpleName}")
+        return
+    }
+    val viewsToApply =
+        if (recursive) findAllViewsById(view, resId) else listOfNotNull(findViewById(view, resId))
+    viewsToApply.forEach { v ->
+        if (v is TextView) {
+            v.setTextIsSelectable(true)
+            v.movementMethod = LinkMovementMethod.getInstance()
+            v.setOnLongClickListener(null)  // remove default action, maybe this will be a setting later?
+        }
+    }
+}
+
+private fun findViewById(view: View, resId: Int): View? {
+    if (view.id == resId) {
+        return view
+    }
+    if (view is ViewGroup) {
+        for (i in 0 until view.childCount) {
+            val found = findViewById(view.getChildAt(i), resId)
+            if (found != null) {
+                return found
+            }
+        }
+    }
+    return null
 }
 
 private fun findAllViewsById(view: View, resId: Int): List<View> {

@@ -13,8 +13,9 @@ class SelectableText : Plugin() {
     }
 
     override fun start(context: Context) {
-        createSelectableEmbedDescription(patcher, settings)
-        createSelectableRichPresence(patcher, settings)
+        embedDescription(patcher, settings)
+        richPresence(patcher, settings)
+        userProfile(patcher, settings)
     }
 
     override fun stop(context: Context) {
