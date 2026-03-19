@@ -6,6 +6,8 @@ import com.aliucord.entities.Plugin
 import com.aliucord.patcher.after
 import com.discord.widgets.chat.input.autocomplete.Autocompletable
 import com.discord.widgets.chat.input.autocomplete.AutocompletableComparator
+import com.discord.widgets.chat.input.autocomplete.UserAutocompletable
+
 
 @Suppress("unused")
 @AliucordPlugin
@@ -20,8 +22,9 @@ class FixNameMention : Plugin() {
                 val result = param.result as Int
 
                 if (result == 0) {
-                    val objA = param.args[0]
-                    val objB = param.args[1]
+                    val objA = param.args[0] as? UserAutocompletable
+                    val objB = param.args[1] as? UserAutocompletable
+                    if (objA == null || objB == null) return@after
                     if (objA !== objB) {
                         var safeCompare =
                             System.identityHashCode(objA).compareTo(System.identityHashCode(objB))
